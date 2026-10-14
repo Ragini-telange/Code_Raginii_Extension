@@ -1,0 +1,33 @@
+# Security & Sensitive Information
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.token
+secrets.json
+config.local.json
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build and Temp
+dist/
+build/
+*.zip
+*.tar.gz
+*.log
+
+# OS & Editor Files
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Python Cache (if helper scripts run)
+__pycache__/
+*.pyc
