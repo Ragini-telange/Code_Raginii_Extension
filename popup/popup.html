@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="popup.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="app-container">
@@ -16,107 +16,358 @@
       <div class="brand">
         <div class="logo-wrapper">
           <img src="../icons/icon32.png" alt="RAG_LeetSync Logo" class="brand-logo" id="brand-logo">
-          <span class="status-indicator-dot" title="Extension operational"></span>
+          <span class="status-indicator-dot" id="header-status-dot" title="Extension active"></span>
         </div>
         <div class="brand-text">
           <div class="brand-title-row">
             <h1 class="brand-name">RAG_LeetSync</h1>
-            <span class="version-tag">v1.0</span>
+            <span class="version-tag">v1.1</span>
           </div>
           <p class="brand-subtitle">LeetCode &bull; GitHub RAG Ingestion</p>
         </div>
       </div>
       <div class="status-badge" id="system-status-badge">
-        <span class="pulse-dot"></span>
+        <span class="pulse-dot" id="system-status-dot"></span>
         <span class="badge-text" id="system-status-text">Ready</span>
       </div>
     </header>
 
-    <!-- Main Content -->
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs" role="tablist">
+      <button class="nav-tab active" data-tab="tab-dashboard" role="tab" aria-selected="true" id="nav-btn-dashboard">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="9" rx="1"></rect>
+          <rect x="14" y="3" width="7" height="5" rx="1"></rect>
+          <rect x="14" y="12" width="7" height="9" rx="1"></rect>
+          <rect x="3" y="16" width="7" height="5" rx="1"></rect>
+        </svg>
+        <span>Dashboard</span>
+      </button>
+
+      <button class="nav-tab" data-tab="tab-github" role="tab" aria-selected="false" id="nav-btn-github">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="currentColor">
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+        </svg>
+        <span>GitHub Auth</span>
+        <span class="auth-dot" id="nav-auth-indicator"></span>
+      </button>
+
+      <button class="nav-tab" data-tab="tab-settings" role="tab" aria-selected="false" id="nav-btn-settings">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+        <span>Settings</span>
+      </button>
+    </nav>
+
+    <!-- Toast Notification Banner -->
+    <div class="toast-banner hidden" id="toast-banner">
+      <span class="toast-icon" id="toast-icon">ℹ️</span>
+      <span class="toast-message" id="toast-message">Notification message</span>
+      <button class="toast-close" id="toast-close">&times;</button>
+    </div>
+
+    <!-- Main Content Area -->
     <main class="content">
-      <!-- Sync Status Banner -->
-      <section class="card connection-card">
-        <div class="card-header">
-          <div class="card-icon-title">
-            <svg class="icon svg-github" viewBox="0 0 24 24" fill="currentColor">
-              <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
-            </svg>
-            <span class="card-title">GitHub Target</span>
+      <!-- ========================================== -->
+      <!-- TAB 1: DASHBOARD -->
+      <!-- ========================================== -->
+      <div class="tab-pane active" id="tab-dashboard">
+        <!-- Connection Card -->
+        <section class="card connection-card">
+          <div class="card-header">
+            <div class="card-icon-title">
+              <svg class="icon svg-github" viewBox="0 0 24 24" fill="currentColor">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+              </svg>
+              <span class="card-title">GitHub Integration</span>
+            </div>
+            <span class="status-pill status-pill-pending" id="github-auth-status">Not Connected</span>
           </div>
-          <span class="status-pill status-pill-pending" id="github-auth-status">Phase 2 Setup</span>
-        </div>
-        <div class="repo-info-row">
-          <div class="repo-meta">
-            <span class="repo-label">Target Repository:</span>
-            <span class="repo-name" id="target-repo-name">rag_leetsync</span>
+
+          <!-- Connected State View -->
+          <div class="repo-connected-view hidden" id="repo-connected-view">
+            <div class="user-chip">
+              <img src="" alt="Avatar" class="user-avatar" id="dash-user-avatar">
+              <div class="user-info">
+                <span class="user-name" id="dash-user-name">GitHub User</span>
+                <span class="user-handle" id="dash-user-handle">@handle</span>
+              </div>
+            </div>
+            <div class="repo-info-row">
+              <div class="repo-meta">
+                <span class="repo-label">Target Repository:</span>
+                <span class="repo-name" id="target-repo-name">rag_leetsync</span>
+              </div>
+              <span class="branch-tag" id="target-branch-name">main</span>
+            </div>
           </div>
-          <span class="branch-tag" id="target-branch-name">main</span>
-        </div>
-      </section>
 
-      <!-- Stats Grid -->
-      <section class="stats-grid">
-        <div class="stat-card">
-          <span class="stat-value" id="stat-synced-count">0</span>
-          <span class="stat-label">Solutions Synced</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-value text-accent" id="stat-autosync-state">ON</span>
-          <span class="stat-label">Auto Ingestion</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-value text-success" id="stat-health-state">V3</span>
-          <span class="stat-label">Manifest Spec</span>
-        </div>
-      </section>
-
-      <!-- Phase 1 Diagnostics Card -->
-      <section class="card diagnostics-card">
-        <div class="card-header">
-          <div class="card-icon-title">
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-            <span class="card-title">Phase 1 Diagnostics</span>
+          <!-- Disconnected Warning Banner -->
+          <div class="auth-callout" id="auth-callout">
+            <p class="auth-callout-text">Connect your GitHub Personal Access Token to enable automated solution synchronization.</p>
+            <button class="btn btn-primary btn-sm" id="btn-goto-auth">Connect GitHub</button>
           </div>
-          <span class="tag-phase">Phase 1</span>
-        </div>
+        </section>
 
-        <div class="diagnostic-actions">
-          <button class="btn btn-secondary" id="btn-ping-worker">
-            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            Ping Background Worker
+        <!-- Stats Grid -->
+        <section class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-value" id="stat-synced-count">0</span>
+            <span class="stat-label">Problems Synced</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value text-accent" id="stat-autosync-state">ON</span>
+            <span class="stat-label">Auto Ingestion</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value text-success" id="stat-repo-state">Ready</span>
+            <span class="stat-label">Pipeline</span>
+          </div>
+        </section>
+
+        <!-- Actions Panel -->
+        <section class="card quick-actions-card">
+          <div class="card-header">
+            <span class="card-title">Quick Actions</span>
+            <span class="tag-phase">Phase 2</span>
+          </div>
+          <div class="action-buttons-row">
+            <button class="btn btn-primary" id="btn-test-sync" title="Push a verification commit to your GitHub repository">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+              </svg>
+              <span>Test GitHub Commit</span>
+            </button>
+            <a href="#" target="_blank" class="btn btn-secondary" id="btn-view-repo">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+              <span>View Repository</span>
+            </a>
+          </div>
+        </section>
+
+        <!-- Diagnostics Section -->
+        <section class="card diagnostics-card">
+          <div class="card-header">
+            <div class="card-icon-title">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <span class="card-title">Diagnostics</span>
+            </div>
+            <button class="btn-text-action" id="btn-clear-console">Clear</button>
+          </div>
+
+          <div class="diagnostic-actions">
+            <button class="btn btn-secondary btn-sm" id="btn-ping-worker">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Ping Worker
+            </button>
+
+            <button class="btn btn-secondary btn-sm" id="btn-check-tab">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
+              </svg>
+              Check LeetCode Tab
+            </button>
+          </div>
+
+          <!-- Mini Console -->
+          <div class="console-box" id="diagnostic-console">
+            <div class="console-header">
+              <span class="console-dot dot-red"></span>
+              <span class="console-dot dot-yellow"></span>
+              <span class="console-dot dot-green"></span>
+              <span class="console-title">runtime-log</span>
+            </div>
+            <pre class="console-body" id="console-output">RAG_LeetSync Phase 2 Initialized.
+Awaiting commands.</pre>
+          </div>
+        </section>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- TAB 2: GITHUB AUTH & REPOSITORY -->
+      <!-- ========================================== -->
+      <div class="tab-pane hidden" id="tab-github">
+        <!-- Connected Profile Card (shows when logged in) -->
+        <section class="card profile-card hidden" id="github-profile-card">
+          <div class="profile-header">
+            <img src="" alt="Avatar" class="avatar-lg" id="auth-user-avatar">
+            <div class="profile-meta">
+              <div class="profile-names">
+                <span class="profile-fullname" id="auth-user-fullname">Full Name</span>
+                <span class="profile-login" id="auth-user-login">@username</span>
+              </div>
+              <div class="profile-badges">
+                <span class="badge-scope" id="auth-scope-badge">repo scope ✓</span>
+                <span class="badge-repo-count" id="auth-repos-count">0 repos</span>
+              </div>
+            </div>
+            <button class="btn btn-danger btn-sm" id="btn-disconnect-github" title="Disconnect GitHub account">Disconnect</button>
+          </div>
+        </section>
+
+        <!-- GitHub PAT Section -->
+        <section class="card form-card" id="github-auth-form-card">
+          <div class="card-header">
+            <div class="card-icon-title">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              <span class="card-title">Personal Access Token (PAT)</span>
+            </div>
+            <a href="https://github.com/settings/tokens/new?scopes=repo&description=RAG_LeetSync" target="_blank" class="link-external" id="btn-create-token-link">
+              <span>Create Token</span>
+              <svg class="mini-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+            </a>
+          </div>
+
+          <p class="form-help-text">Requires a Classic Token with <code>repo</code> scope (or Fine-grained token with Contents Read/Write).</p>
+
+          <div class="form-group">
+            <div class="input-password-wrapper">
+              <input type="password" id="input-github-token" class="form-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" spellcheck="false">
+              <button class="btn-toggle-visibility" id="btn-toggle-token-vis" title="Toggle visibility">
+                <svg class="eye-icon" id="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+            <span class="input-hint" id="token-status-hint">Never shared or transmitted to external servers.</span>
+          </div>
+
+          <button class="btn btn-primary btn-block" id="btn-save-token">
+            <span class="btn-spinner hidden" id="token-spinner"></span>
+            <span id="btn-save-token-text">Verify &amp; Connect GitHub</span>
           </button>
+        </section>
 
-          <button class="btn btn-secondary" id="btn-check-tab">
-            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
-            </svg>
-            Check LeetCode Tab
-          </button>
-        </div>
-
-        <!-- Diagnostic Output Console -->
-        <div class="console-box" id="diagnostic-console">
-          <div class="console-header">
-            <span class="console-dot dot-red"></span>
-            <span class="console-dot dot-yellow"></span>
-            <span class="console-dot dot-green"></span>
-            <span class="console-title">runtime-log</span>
+        <!-- Repository Selection Card -->
+        <section class="card form-card" id="github-repo-card">
+          <div class="card-header">
+            <div class="card-icon-title">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+              </svg>
+              <span class="card-title">Target Repository</span>
+            </div>
+            <button class="btn-text-action" id="btn-refresh-repos" title="Refresh repositories from GitHub">Refresh</button>
           </div>
-          <pre class="console-body" id="console-output">RAG_LeetSync Phase 1 Initialized.
-Click above to verify runtime channels.</pre>
-        </div>
-      </section>
+
+          <div class="form-group">
+            <label class="form-label" for="select-user-repo">Select from your repositories:</label>
+            <div class="select-wrapper">
+              <select id="select-user-repo" class="form-select">
+                <option value="">-- Connect GitHub to load repositories --</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="divider-text">
+            <span>OR SPECIFY CUSTOM REPOSITORY</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="input-custom-repo">Repository Name:</label>
+            <input type="text" id="input-custom-repo" class="form-input" placeholder="rag_leetsync" value="rag_leetsync">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="input-target-branch">Branch:</label>
+            <input type="text" id="input-target-branch" class="form-input" placeholder="main" value="main">
+          </div>
+
+          <div class="button-group-row">
+            <button class="btn btn-secondary flex-1" id="btn-create-repo">
+              <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>Create New Repo</span>
+            </button>
+            <button class="btn btn-primary flex-1" id="btn-save-repo">
+              <span class="btn-spinner hidden" id="repo-spinner"></span>
+              <span id="btn-save-repo-text">Set Repository</span>
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- TAB 3: SETTINGS -->
+      <!-- ========================================== -->
+      <div class="tab-pane hidden" id="tab-settings">
+        <section class="card form-card">
+          <div class="card-header">
+            <div class="card-icon-title">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+              </svg>
+              <span class="card-title">Sync Preferences</span>
+            </div>
+          </div>
+
+          <!-- Auto Sync Switch -->
+          <div class="setting-row">
+            <div class="setting-meta">
+              <span class="setting-title">Automatic Submission Sync</span>
+              <span class="setting-desc">Push to GitHub immediately when a problem solution is accepted.</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-auto-sync" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- RAG Markdown Metadata Switch -->
+          <div class="setting-row">
+            <div class="setting-meta">
+              <span class="setting-title">RAG Documentation Header</span>
+              <span class="setting-desc">Include problem statement, difficulty, and complexity metrics for AI retrieval.</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-rag-metadata" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="form-group mt-2">
+            <label class="form-label" for="setting-dir-pattern">Directory Pattern:</label>
+            <input type="text" id="setting-dir-pattern" class="form-input font-mono" value="problems/{difficulty}/{titleSlug}">
+            <span class="input-hint">Tags: {difficulty}, {titleSlug}, {id}</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="setting-commit-pattern">Commit Message Pattern:</label>
+            <input type="text" id="setting-commit-pattern" class="form-input font-mono" value="Solved {title} [{difficulty}] - RAG_LeetSync">
+          </div>
+
+          <button class="btn btn-primary btn-block mt-2" id="btn-save-settings">Save Preferences</button>
+        </section>
+      </div>
     </main>
 
     <!-- Footer -->
     <footer class="footer">
       <div class="footer-left">
-        <span class="dot-online"></span>
-        <span class="footer-status" id="footer-status">Manifest V3 Service Worker Ready</span>
+        <span class="dot-online" id="footer-online-dot"></span>
+        <span class="footer-status" id="footer-status">Manifest V3 &bull; Phase 2 Active</span>
       </div>
       <div class="footer-right">
         <a href="https://github.com" target="_blank" class="footer-link" id="footer-github-link">GitHub</a>

@@ -10,14 +10,16 @@
 
 ### 6-Phase Development Roadmap
 
-- [x] **Phase 1: Project Scaffolding & Manifest V3 Foundation** *(Current)*
+- [x] **Phase 1: Project Scaffolding & Manifest V3 Foundation**
   - Manifest V3 architecture with background service worker
   - High-aesthetic popup dashboard and diagnostic utilities
   - Local storage initialization and clean modular file layout
-- [ ] **Phase 2: Secure GitHub Authentication & Repository Selection**
-  - Personal Access Token (PAT) / Device Flow via Chrome Storage API
-  - Repository picker and validation
-- [ ] **Phase 3: Manual Solution Upload & File Templating**
+- [x] **Phase 2: Secure GitHub Authentication & Repository Selection** *(Completed)*
+  - Personal Access Token (PAT) with direct one-click GitHub generator
+  - Dynamic user repository fetch, picker, and one-click remote repo creation
+  - End-to-end integration test commit verification via GitHub Contents REST API
+  - Secure credential isolation in `chrome.storage.local` with masked display
+- [ ] **Phase 3: Manual Solution Upload & File Templating** *(Next)*
   - Commit creation/update via GitHub REST API
   - RAG metadata schema (difficulty, tags, runtime, memory, prompt)
 - [ ] **Phase 4: Automated LeetCode Submission Ingestion**
@@ -43,13 +45,14 @@
 
 ```text
 rag_leetsync/
-├── manifest.json              # Chrome Manifest V3 configuration
+├── manifest.json              # Chrome Manifest V3 configuration (v1.1)
 ├── background/
-│   └── background.js          # Service worker handling lifecycle & messages
+│   ├── background.js          # Service worker handling lifecycle & messages
+│   └── github-api.js          # Modular GitHub REST API client (Auth, Repos, Commits)
 ├── popup/
-│   ├── popup.html             # Extension popup interface
-│   ├── popup.css              # Dark theme styling & responsive layout
-│   └── popup.js               # Popup logic & diagnostics
+│   ├── popup.html             # Multi-tab dashboard, auth & settings UI
+│   ├── popup.css              # Obsidian & Cyber Teal theme with animations
+│   └── popup.js               # Reactive popup controller & GitHub manager
 ├── icons/                     # Extension icons (16px, 32px, 48px, 128px)
 │   ├── icon16.png
 │   ├── icon32.png
@@ -80,23 +83,29 @@ Follow these steps to load `RAG_LeetSync` locally in Google Chrome:
      ```
 
 4. **Verify Extension Loading**:
-   - The card **RAG_LeetSync** with version `1.0.0` will appear.
+   - The card **RAG_LeetSync** with version `1.1.0` will appear.
    - Confirm that there are **no errors** or red warning banners on the card.
    - Ensure the service worker status indicates `Service worker (Active)`.
 
-5. **Test the Popup**:
-   - Click the puzzle icon (Extensions) in your Chrome toolbar and pin **RAG_LeetSync**.
+5. **Test Phase 2 GitHub Authentication & Sync**:
    - Click the extension icon to open the popup.
-   - Click **Ping Background Worker** to test runtime messaging. You should receive a confirmation with the version and timestamp.
-   - Click **Check LeetCode Tab** while browsing LeetCode to verify tab detection.
+   - Switch to the **GitHub Auth** tab:
+     - Click **Create Token** to open GitHub's token generator (pre-configured with `repo` scope).
+     - Paste your Personal Access Token (PAT) and click **Verify & Connect GitHub**.
+     - Once connected, your avatar, username, and repository list will populate automatically.
+     - Choose an existing repository or click **Create New Repo** to initialize `rag_leetsync` on GitHub.
+   - Return to the **Dashboard** tab:
+     - Click **Test GitHub Commit** to run a live end-to-end commit test (`RAG_SYNC_TEST.md`) verified via the GitHub API.
+     - Click **View Repository** to inspect the repository directly on GitHub.
+   - Switch to **Settings** to customize problem directory patterns and commit message templates.
 
 ---
 
 ## 🔒 Security & Best Practices
 
 - **Zero Secret Commits**: Authentication credentials or tokens are never committed to Git.
-- **Chrome Storage API**: Tokens are stored strictly within the user's isolated local Chrome extension storage.
-- **Least-Privilege Scopes**: Permissions are restricted strictly to `storage`, `notifications`, `activeTab`, and required domain hosts.
+- **Chrome Storage API**: Tokens are stored strictly within the user's isolated local Chrome extension storage (`chrome.storage.local`).
+- **Least-Privilege Scopes**: Permissions are restricted strictly to `storage`, `notifications`, `activeTab`, `tabs`, and required domain hosts (`api.github.com`, `leetcode.com`).
 
 ---
 
