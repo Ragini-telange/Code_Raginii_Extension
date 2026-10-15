@@ -75,6 +75,100 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   }
 });
 
+/**
+ * Shared synchronization orchestrator for both manual and automated LeetCode ingestion
+ */
+async function processProblemSync(problem) {
+  const { auth, settings, syncStatus, recentSyncs } = await chrome.storage.local.get([
+    'auth',
+    'settings',
+    'syncStatus',
+    'recentSyncs'
+  ]);
+
+  if (!auth?.token || !auth?.connected) {
+    return {
+      success: false,
+      error: 'GitHub is not authenticated. Please open RAG_LeetSync and configure your Personal Access Token.'
+    };
+  }
+
+  const owner = auth.owner || auth.username;
+  const repo = auth.repo || 'rag_leetsync';
+  const branch = auth.branch || 'main';
+
+  const dirPattern = settings?.directoryPattern || 'problems/{difficulty}/{titleSlug}';
+  const commitMsgPattern = settings?.commitMessagePattern || 'Solved {title} [{difficulty}] - RAG_LeetSync';
+
+  // Build the complete 3-part file bundle (solution, README, metadata.json)
+  const bundle = buildProblemSyncBundle(problem, dirPattern, commitMsgPattern);
+
+  console.log(`[RAG_LeetSync] Ingesting problem: "${problem.title}" to ${owner}/${repo} (${bundle.dirPath})`);
+
+  // Execute atomic commit
+  const commitResult = await commitMultipleFilesToGitHub(
+    auth.token,
+    owner,
+    repo,
+    bundle.files,
+    bundle.commitMessage,
+    branch
+  );
+
+  if (!commitResult.success) {
+    console.error('[RAG_LeetSync] Commit execution failed:', commitResult.error);
+    return { success: false, error: commitResult.error };
+  }
+
+  // Update recent sync history & metrics
+  const newRecord = {
+    id: problem.id || null,
+    title: problem.title,
+    difficulty: problem.difficulty || 'Easy',
+    language: problem.language || 'python3',
+    dirPath: bundle.dirPath,
+    commitSha: commitResult.commitSha,
+    commitUrl: commitResult.commitUrl,
+    syncedAt: new Date().toISOString()
+  };
+
+  const updatedRecentSyncs = [newRecord, ...(recentSyncs || [])].slice(0, 30);
+  const updatedStatus = {
+    ...syncStatus,
+    state: 'ready',
+    lastSyncedAt: new Date().toISOString(),
+    lastError: null,
+    totalSynced: (syncStatus?.totalSynced || 0) + 1
+  };
+
+  await chrome.storage.local.set({
+    recentSyncs: updatedRecentSyncs,
+    syncStatus: updatedStatus
+  });
+
+  // Native notification
+  try {
+    if (chrome.notifications && chrome.notifications.create) {
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+        title: 'RAG_LeetSync - Solution Ingested',
+        message: `Successfully synced "${problem.title}" [${problem.difficulty || 'Easy'}] to ${owner}/${repo}`,
+        priority: 1
+      });
+    }
+  } catch (e) {}
+
+  return {
+    success: true,
+    commitSha: commitResult.commitSha,
+    commitUrl: commitResult.commitUrl,
+    dirPath: bundle.dirPath,
+    filesCount: bundle.files.length,
+    record: newRecord
+  };
+}
+
 // Main message router
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const handler = async () => {
@@ -290,81 +384,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (!problem || !problem.title || !problem.code) {
           return { success: false, error: 'Problem title and solution code are required.' };
         }
+        return await processProblemSync(problem);
+      }
 
-        const { auth, settings, syncStatus, recentSyncs } = await chrome.storage.local.get([
-          'auth',
-          'settings',
-          'syncStatus',
-          'recentSyncs'
-        ]);
-
-        if (!auth?.token || !auth?.connected) {
-          return { success: false, error: 'GitHub is not authenticated. Please connect your GitHub account in settings.' };
+      case 'LEETCODE_SUBMISSION_ACCEPTED': {
+        const problem = message.payload?.problem;
+        if (!problem || !problem.title || !problem.code) {
+          return { success: false, error: 'Problem data missing.' };
         }
 
-        const owner = auth.owner || auth.username;
-        const repo = auth.repo || 'rag_leetsync';
-        const branch = auth.branch || 'main';
-
-        const dirPattern = settings?.directoryPattern || 'problems/{difficulty}/{titleSlug}';
-        const commitMsgPattern = settings?.commitMessagePattern || 'Solved {title} [{difficulty}] - RAG_LeetSync';
-
-        // Build file bundle (solution.<ext>, README.md, metadata.json)
-        const bundle = buildProblemSyncBundle(problem, dirPattern, commitMsgPattern);
-
-        console.log(`[RAG_LeetSync] Committing solution for '${problem.title}' to ${owner}/${repo}:${branch} (${bundle.dirPath})`);
-
-        // Execute commit
-        const commitResult = await commitMultipleFilesToGitHub(
-          auth.token,
-          owner,
-          repo,
-          bundle.files,
-          bundle.commitMessage,
-          branch
-        );
-
-        if (!commitResult.success) {
-          console.error('[RAG_LeetSync] Commit failed:', commitResult.error);
-          return { success: false, error: commitResult.error };
+        const { settings } = await chrome.storage.local.get(['settings']);
+        if (settings && settings.autoSync === false) {
+          console.log('[RAG_LeetSync] Auto-sync disabled by user preferences.');
+          return { success: false, autoSyncDisabled: true };
         }
 
-        // Record in recentSyncs & update metrics
-        const newRecord = {
-          id: problem.id || null,
-          title: problem.title,
-          difficulty: problem.difficulty || 'Easy',
-          language: problem.language || 'python3',
-          dirPath: bundle.dirPath,
-          commitSha: commitResult.commitSha,
-          commitUrl: commitResult.commitUrl,
-          syncedAt: new Date().toISOString()
-        };
-
-        const updatedRecentSyncs = [newRecord, ...(recentSyncs || [])].slice(0, 30);
-        const updatedStatus = {
-          ...syncStatus,
-          state: 'ready',
-          lastSyncedAt: new Date().toISOString(),
-          lastError: null,
-          totalSynced: (syncStatus?.totalSynced || 0) + 1
-        };
-
-        await chrome.storage.local.set({
-          recentSyncs: updatedRecentSyncs,
-          syncStatus: updatedStatus
-        });
-
-        console.log(`[RAG_LeetSync] Solution '${problem.title}' synced successfully! Commit: ${commitResult.commitSha}`);
-
-        return {
-          success: true,
-          commitSha: commitResult.commitSha,
-          commitUrl: commitResult.commitUrl,
-          dirPath: bundle.dirPath,
-          filesCount: bundle.files.length,
-          record: newRecord
-        };
+        return await processProblemSync(problem);
       }
 
       case 'PREVIEW_PROBLEM_BUNDLE': {

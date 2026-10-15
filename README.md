@@ -24,10 +24,13 @@
   - RAG metadata schema generator: formatted `solution.<ext>`, rich `README.md` with badges & intuition, and machine-readable `metadata.json`
   - In-popup manual ingestion form with active tab auto-detection & sample solution loader
   - Live RAG bundle preview drawer & recent ingestions dashboard tracker
-- [ ] **Phase 4: Automated LeetCode Submission Ingestion** *(Next)*
-  - Detection of "Accepted" submissions
-  - User source code extraction with manual fallback
-- [ ] **Phase 5: Sync History, Duplicate Prevention & Resilience**
+- [x] **Phase 4: Automated LeetCode Submission Ingestion** *(Completed)*
+  - Main-world network interceptor (`content/main-world.js`) hooking into fetch/XHR submission checks
+  - Direct Monaco editor model extraction (`window.monaco.editor.getModels()`) with DOM line scraping fallback
+  - Automatic detection of "Accepted" state, runtime percentiles, and memory percentiles
+  - Floating in-page sync notification widget (`content/content.css`) on `leetcode.com` with direct commit links
+  - Native Chrome desktop notification integration upon successful push
+- [ ] **Phase 5: Sync History, Duplicate Prevention & Resilience** *(Next)*
   - Upload history dashboard, retry queues, and notification toasts
 - [ ] **Phase 6: Release Packaging & Web Store Preparation**
   - Automated linting, test verification, and packaged ZIP bundle
@@ -47,11 +50,15 @@
 
 ```text
 rag_leetsync/
-├── manifest.json              # Chrome Manifest V3 configuration (v1.2)
+├── manifest.json              # Chrome Manifest V3 configuration (v1.3)
 ├── background/
 │   ├── background.js          # Service worker handling lifecycle & messages
 │   ├── github-api.js          # Modular GitHub REST API client (Auth, Repos, Commits)
 │   └── rag-templates.js       # RAG metadata, schema generator & code formatting
+├── content/
+│   ├── main-world.js          # In-page Monaco & network submission interceptor
+│   ├── leetcode.js            # Content script observer & sync coordinator
+│   └── content.css            # Floating in-page sync toast styling
 ├── popup/
 │   ├── popup.html             # Multi-tab dashboard, sync form, auth & settings UI
 │   ├── popup.css              # Obsidian & Cyber Teal theme with animations
@@ -107,6 +114,15 @@ Follow these steps to load `RAG_LeetSync` locally in Google Chrome:
      - Click **Sync to GitHub** to trigger an atomic multi-file commit via the GitHub Git Data API.
      - Switch back to the **Dashboard** to see your problem logged in the **Recent Ingestions** list with a direct clickable link to the GitHub commit!
    - Switch to **Settings** to customize problem directory patterns and commit message templates.
+
+7. **Test Phase 4 Automated LeetCode Submission Ingestion**:
+   - Open any problem on [LeetCode](https://leetcode.com/problems/two-sum/) in Google Chrome.
+   - Click **Submit** on an accepted solution.
+   - The in-page **RAG_LeetSync Notification Toast** will pop up in the lower-right corner:
+     - Real-time status: *"Accepted! Syncing to GitHub..."*
+     - Automatic extraction of Monaco editor code, execution runtime, memory percentiles, and problem tags.
+     - Confirmation with direct commit link: *"Synced [title] (commit SHA)!"*
+   - A native desktop notification will also confirm the push.
 
 ---
 
