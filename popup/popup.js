@@ -1,7 +1,7 @@
 /**
- * RAG_LeetSync - Popup Interface Controller (Phase 2)
+ * RAG_LeetSync - Popup Interface Controller (Phase 3)
  * Handles tab navigation, GitHub authentication, repository management,
- * test sync commits, settings persistence, and diagnostics.
+ * solution ingestion, RAG templating preview, recent syncs, and diagnostics.
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const toastIcon = document.getElementById('toast-icon');
   const toastClose = document.getElementById('toast-close');
 
-  // DOM Elements - Dashboard
+  // DOM Elements - Dashboard Tab
   const githubAuthStatus = document.getElementById('github-auth-status');
   const authCallout = document.getElementById('auth-callout');
   const btnGotoAuth = document.getElementById('btn-goto-auth');
@@ -32,14 +32,37 @@ document.addEventListener('DOMContentLoaded', async () => {
   const statSyncedCount = document.getElementById('stat-synced-count');
   const statAutosyncState = document.getElementById('stat-autosync-state');
   const statRepoState = document.getElementById('stat-repo-state');
+  const btnDashSyncNow = document.getElementById('btn-dash-sync-now');
   const btnTestSync = document.getElementById('btn-test-sync');
   const btnViewRepo = document.getElementById('btn-view-repo');
+  const recentSyncsList = document.getElementById('recent-syncs-list');
 
   // DOM Elements - Diagnostics
   const btnPingWorker = document.getElementById('btn-ping-worker');
   const btnCheckTab = document.getElementById('btn-check-tab');
   const btnClearConsole = document.getElementById('btn-clear-console');
   const consoleOutput = document.getElementById('console-output');
+
+  // DOM Elements - Phase 3 Solution Sync Tab
+  const syncProblemTitle = document.getElementById('sync-problem-title');
+  const syncProblemId = document.getElementById('sync-problem-id');
+  const syncDifficulty = document.getElementById('sync-difficulty');
+  const syncLanguage = document.getElementById('sync-language');
+  const syncTags = document.getElementById('sync-tags');
+  const syncCode = document.getElementById('sync-code');
+  const syncTimeComplexity = document.getElementById('sync-time-complexity');
+  const syncSpaceComplexity = document.getElementById('sync-space-complexity');
+  const syncNotes = document.getElementById('sync-notes');
+  const btnLoadSample = document.getElementById('btn-load-sample');
+  const btnDetectTab = document.getElementById('btn-detect-tab');
+  const btnPreviewBundle = document.getElementById('btn-preview-bundle');
+  const btnSubmitSync = document.getElementById('btn-submit-sync');
+  const btnSubmitSyncText = document.getElementById('btn-submit-sync-text');
+  const syncSpinner = document.getElementById('sync-spinner');
+  const previewDrawer = document.getElementById('preview-drawer');
+  const btnClosePreview = document.getElementById('btn-close-preview');
+  const previewDirPath = document.getElementById('preview-dir-path');
+  const previewReadmeContent = document.getElementById('preview-readme-content');
 
   // DOM Elements - GitHub Auth Tab
   const githubProfileCard = document.getElementById('github-profile-card');
@@ -76,7 +99,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   let toastTimeout = null;
 
   // =========================================================================
-  // Utilities
+  // Utilities & Logging
   // =========================================================================
   function logConsole(text) {
     if (consoleOutput) {
@@ -85,7 +108,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  function showToast(message, type = 'info', duration = 3800) {
+  function showToast(message, type = 'info', duration = 4000) {
     if (!toastBanner) return;
     if (toastTimeout) clearTimeout(toastTimeout);
 
@@ -140,31 +163,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   if (btnGotoAuth) {
-    btnGotoAuth.addEventListener('click', () => {
-      switchTab('tab-github');
-    });
+    btnGotoAuth.addEventListener('click', () => switchTab('tab-github'));
+  }
+
+  if (btnDashSyncNow) {
+    btnDashSyncNow.addEventListener('click', () => switchTab('tab-sync'));
   }
 
   // =========================================================================
-  // 2. Token Visibility Toggle
-  // =========================================================================
-  if (btnToggleTokenVis && inputGithubToken) {
-    btnToggleTokenVis.addEventListener('click', () => {
-      const isPassword = inputGithubToken.type === 'password';
-      inputGithubToken.type = isPassword ? 'text' : 'password';
-      btnToggleTokenVis.innerHTML = isPassword
-        ? `<svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`
-        : `<svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
-    });
-  }
-
-  // =========================================================================
-  // 3. Load State from Extension Storage
+  // 2. Load State & Hydration
   // =========================================================================
   async function loadState() {
     try {
       if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
-        logConsole('Running outside extension runtime (Mock mode).');
+        logConsole('Mock environment active.');
         return;
       }
 
@@ -174,13 +186,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
-      const { auth, syncStatus, settings } = response.data;
+      const { auth, syncStatus, settings, recentSyncs } = response.data;
 
-      // Update Sync Stats
+      // Update sync counter and settings
       if (statSyncedCount) statSyncedCount.textContent = syncStatus?.totalSynced ?? 0;
       if (statAutosyncState) statAutosyncState.textContent = settings?.autoSync ? 'ON' : 'OFF';
 
-      // Update Settings Tab inputs
       if (settings) {
         if (settingAutoSync) settingAutoSync.checked = Boolean(settings.autoSync);
         if (settingRagMetadata) settingRagMetadata.checked = Boolean(settings.ragMetadataEnabled);
@@ -188,31 +199,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (settingCommitPattern) settingCommitPattern.value = settings.commitMessagePattern || 'Solved {title} [{difficulty}] - RAG_LeetSync';
       }
 
-      // Handle Authentication State
+      // Render Recent Ingestions
+      renderRecentSyncs(recentSyncs || []);
+
+      // Authentication State
       const isConnected = Boolean(auth && auth.connected && auth.username);
       updateAuthUI(isConnected, auth);
 
       if (isConnected) {
-        logConsole(`Connected to GitHub: @${auth.username} (${auth.owner || auth.username}/${auth.repo || 'rag_leetsync'})`);
+        logConsole(`Connected to @${auth.username} (${auth.owner || auth.username}/${auth.repo || 'rag_leetsync'})`);
         fetchUserReposList();
-      } else {
-        logConsole('Extension ready. GitHub not connected.');
       }
     } catch (err) {
       console.error('State load error:', err);
-      logConsole(`State initialization error: ${err.message}`);
+      logConsole(`State error: ${err.message}`);
     }
   }
 
   function updateAuthUI(isConnected, auth = {}) {
-    // Header & Navigation Indicators
     if (systemStatusText) systemStatusText.textContent = isConnected ? 'Connected' : 'Ready';
-    if (navAuthIndicator) {
-      navAuthIndicator.classList.toggle('connected', isConnected);
-    }
+    if (navAuthIndicator) navAuthIndicator.classList.toggle('connected', isConnected);
 
     if (isConnected) {
-      // Dashboard Pill & Views
       if (githubAuthStatus) {
         githubAuthStatus.textContent = 'Connected';
         githubAuthStatus.className = 'status-pill status-pill-connected';
@@ -232,14 +240,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (targetBranchName) targetBranchName.textContent = branch;
       if (statRepoState) statRepoState.textContent = repoName;
 
-      // Update view repo button
       if (btnViewRepo) {
         btnViewRepo.href = `https://github.com/${repoOwner}/${repoName}`;
         btnViewRepo.style.pointerEvents = 'auto';
         btnViewRepo.style.opacity = '1';
       }
 
-      // GitHub Tab Profile Card
       if (githubProfileCard) githubProfileCard.classList.remove('hidden');
       if (authUserAvatar) authUserAvatar.src = auth.avatarUrl || '../icons/icon32.png';
       if (authUserFullname) authUserFullname.textContent = auth.name || auth.username;
@@ -253,7 +259,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (inputCustomRepo) inputCustomRepo.value = repoName;
       if (inputTargetBranch) inputTargetBranch.value = branch;
 
-      // Token input placeholder
       if (inputGithubToken) {
         inputGithubToken.value = '';
         inputGithubToken.placeholder = auth.maskedToken || '••••••••••••••••';
@@ -264,7 +269,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       if (btnSaveTokenText) btnSaveTokenText.textContent = 'Update GitHub Token';
     } else {
-      // Disconnected State
       if (githubAuthStatus) {
         githubAuthStatus.textContent = 'Not Connected';
         githubAuthStatus.className = 'status-pill status-pill-pending';
@@ -295,9 +299,209 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  function renderRecentSyncs(syncs = []) {
+    if (!recentSyncsList) return;
+    if (syncs.length === 0) {
+      recentSyncsList.innerHTML = '<div class="empty-syncs-notice">No problems synced yet. Click "Sync Solution" above to ingest your first problem!</div>';
+      return;
+    }
+
+    recentSyncsList.innerHTML = '';
+    syncs.slice(0, 5).forEach((item) => {
+      const row = document.createElement('div');
+      row.className = 'recent-sync-item';
+
+      const diff = (item.difficulty || 'Easy').toLowerCase();
+      const diffClass = diff === 'hard' ? 'diff-hard' : diff === 'medium' ? 'diff-medium' : 'diff-easy';
+      const shortSha = item.commitSha ? item.commitSha.slice(0, 7) : 'commit';
+
+      row.innerHTML = `
+        <div class="sync-item-left">
+          <span class="sync-diff-badge ${diffClass}">${item.difficulty || 'Easy'}</span>
+          <span class="sync-item-title" title="${item.title}">${item.id ? `${item.id}. ` : ''}${item.title}</span>
+        </div>
+        <div class="sync-item-right">
+          <span class="sync-lang-tag">${item.language || ''}</span>
+          ${item.commitUrl ? `<a href="${item.commitUrl}" target="_blank" class="sync-commit-link" title="Open commit on GitHub">${shortSha}</a>` : `<span class="sync-commit-link">${shortSha}</span>`}
+        </div>
+      `;
+      recentSyncsList.appendChild(row);
+    });
+  }
+
   // =========================================================================
-  // 4. GitHub Token Verification & Connection
+  // 3. Phase 3: Solution Ingestion & Manual Sync Flow
   // =========================================================================
+  function collectProblemData() {
+    return {
+      title: syncProblemTitle ? syncProblemTitle.value.trim() : '',
+      id: syncProblemId && syncProblemId.value ? parseInt(syncProblemId.value, 10) : null,
+      difficulty: syncDifficulty ? syncDifficulty.value : 'Easy',
+      language: syncLanguage ? syncLanguage.value : 'python3',
+      tags: syncTags ? syncTags.value.trim() : '',
+      code: syncCode ? syncCode.value : '',
+      timeComplexity: syncTimeComplexity && syncTimeComplexity.value ? syncTimeComplexity.value.trim() : 'O(N)',
+      spaceComplexity: syncSpaceComplexity && syncSpaceComplexity.value ? syncSpaceComplexity.value.trim() : 'O(1)',
+      notes: syncNotes ? syncNotes.value.trim() : ''
+    };
+  }
+
+  // Load Sample Code
+  if (btnLoadSample) {
+    btnLoadSample.addEventListener('click', () => {
+      if (syncProblemTitle) syncProblemTitle.value = 'Two Sum';
+      if (syncProblemId) syncProblemId.value = '1';
+      if (syncDifficulty) syncDifficulty.value = 'Easy';
+      if (syncLanguage) syncLanguage.value = 'python3';
+      if (syncTags) syncTags.value = 'Array, Hash Table';
+      if (syncTimeComplexity) syncTimeComplexity.value = 'O(N)';
+      if (syncSpaceComplexity) syncSpaceComplexity.value = 'O(N)';
+      if (syncNotes) syncNotes.value = 'Iterate through the array and use a hash map to look up the required complement (target - num) in O(1) time.';
+
+      if (syncCode) {
+        syncCode.value = `class Solution:
+    def twoSum(self, nums: list[int], target: int) -> list[int]:
+        seen = {}
+        for i, num in enumerate(nums):
+            complement = target - num
+            if complement in seen:
+                return [seen[complement], i]
+            seen[num] = i
+        return []`;
+      }
+      showToast('Loaded sample "Two Sum" solution!', 'info');
+      logConsole('Loaded Two Sum sample solution into ingestion form.');
+    });
+  }
+
+  // Detect from active LeetCode Tab
+  if (btnDetectTab) {
+    btnDetectTab.addEventListener('click', async () => {
+      btnDetectTab.disabled = true;
+      logConsole('Inspecting active tab for LeetCode problem...');
+      try {
+        const response = await chrome.runtime.sendMessage({ type: 'INSPECT_ACTIVE_LEETCODE_TAB' });
+        if (response && response.success && response.isLeetCode && response.isProblemPage) {
+          if (syncProblemTitle) syncProblemTitle.value = response.title;
+          showToast(`Detected problem: ${response.title}`, 'success');
+          logConsole(`Auto-detected LeetCode problem: "${response.title}" (${response.slug})`);
+        } else if (response && response.isLeetCode) {
+          showToast('Active tab is on LeetCode, but not a specific problem page.', 'info');
+        } else {
+          showToast('Current tab is not a LeetCode problem.', 'info');
+        }
+      } catch (err) {
+        showToast(`Detection error: ${err.message}`, 'error');
+      } finally {
+        btnDetectTab.disabled = false;
+      }
+    });
+  }
+
+  // Preview RAG Bundle
+  if (btnPreviewBundle) {
+    btnPreviewBundle.addEventListener('click', async () => {
+      const problem = collectProblemData();
+      if (!problem.title) {
+        showToast('Please provide a problem title to preview.', 'error');
+        if (syncProblemTitle) syncProblemTitle.focus();
+        return;
+      }
+
+      logConsole(`Generating RAG preview for "${problem.title}"...`);
+      try {
+        const response = await chrome.runtime.sendMessage({
+          type: 'PREVIEW_PROBLEM_BUNDLE',
+          payload: { problem }
+        });
+
+        if (response && response.success && response.bundle) {
+          const bundle = response.bundle;
+          if (previewDirPath) previewDirPath.textContent = `${bundle.dirPath}/`;
+          const readmeFile = bundle.files.find(f => f.path.endsWith('README.md'));
+          if (previewReadmeContent) {
+            previewReadmeContent.textContent = readmeFile ? readmeFile.content : 'Preview generated.';
+          }
+          if (previewDrawer) previewDrawer.classList.remove('hidden');
+          logConsole(`RAG bundle preview generated for path: ${bundle.dirPath}`);
+        }
+      } catch (err) {
+        showToast(`Preview failed: ${err.message}`, 'error');
+      }
+    });
+  }
+
+  if (btnClosePreview && previewDrawer) {
+    btnClosePreview.addEventListener('click', () => {
+      previewDrawer.classList.add('hidden');
+    });
+  }
+
+  // Push Solution to GitHub
+  if (btnSubmitSync) {
+    btnSubmitSync.addEventListener('click', async () => {
+      const problem = collectProblemData();
+
+      if (!problem.title) {
+        showToast('Problem title is required.', 'error');
+        if (syncProblemTitle) syncProblemTitle.focus();
+        return;
+      }
+      if (!problem.code) {
+        showToast('Solution code is required. Paste your solution before syncing.', 'error');
+        if (syncCode) syncCode.focus();
+        return;
+      }
+
+      // UI Loading state
+      btnSubmitSync.disabled = true;
+      if (syncSpinner) syncSpinner.classList.remove('hidden');
+      if (btnSubmitSyncText) btnSubmitSyncText.textContent = 'Syncing to GitHub...';
+      logConsole(`Initiating multi-file commit for "${problem.title}"...`);
+      showToast(`Pushing "${problem.title}" to GitHub...`, 'info');
+
+      try {
+        const response = await chrome.runtime.sendMessage({
+          type: 'SYNC_PROBLEM',
+          payload: { problem }
+        });
+
+        if (response && response.success) {
+          const sha = response.commitSha ? response.commitSha.slice(0, 7) : 'done';
+          showToast(`"${problem.title}" successfully synced to GitHub (${sha})!`, 'success', 5000);
+          logConsole(`Solution committed! SHA: ${sha}. Path: ${response.dirPath}. Commit URL: ${response.commitUrl}`);
+
+          // Reload state and recent list
+          await loadState();
+
+          // Switch back to dashboard after brief pause to show updated recent syncs
+          setTimeout(() => switchTab('tab-dashboard'), 1500);
+        } else {
+          const errMsg = response?.error || 'Failed to sync solution to GitHub.';
+          showToast(errMsg, 'error', 6000);
+          logConsole(`Sync error: ${errMsg}`);
+        }
+      } catch (err) {
+        showToast(`Sync request failed: ${err.message}`, 'error');
+        logConsole(`Sync failure: ${err.message}`);
+      } finally {
+        btnSubmitSync.disabled = false;
+        if (syncSpinner) syncSpinner.classList.add('hidden');
+        if (btnSubmitSyncText) btnSubmitSyncText.textContent = 'Sync to GitHub';
+      }
+    });
+  }
+
+  // =========================================================================
+  // 4. GitHub Auth & Token Flow
+  // =========================================================================
+  if (btnToggleTokenVis && inputGithubToken) {
+    btnToggleTokenVis.addEventListener('click', () => {
+      const isPassword = inputGithubToken.type === 'password';
+      inputGithubToken.type = isPassword ? 'text' : 'password';
+    });
+  }
+
   if (btnSaveToken && inputGithubToken) {
     btnSaveToken.addEventListener('click', async () => {
       const token = inputGithubToken.value.trim();
@@ -307,7 +511,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
-      // UI Loading state
       btnSaveToken.disabled = true;
       if (tokenSpinner) tokenSpinner.classList.remove('hidden');
       if (btnSaveTokenText) btnSaveTokenText.textContent = 'Verifying credentials...';
@@ -320,8 +523,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         if (response && response.success) {
-          showToast(`Successfully connected to GitHub as @${response.user.login}!`, 'success');
-          logConsole(`Token validated for @${response.user.login}. Scopes: [${response.scopes.join(', ')}]`);
+          showToast(`Connected to GitHub as @${response.user.login}!`, 'success');
+          logConsole(`Token validated for @${response.user.login}.`);
           await loadState();
         } else {
           const errMsg = response?.error || 'Failed to authenticate token with GitHub.';
@@ -330,7 +533,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       } catch (err) {
         showToast(`Connection error: ${err.message}`, 'error');
-        logConsole(`Network or runtime error: ${err.message}`);
       } finally {
         btnSaveToken.disabled = false;
         if (tokenSpinner) tokenSpinner.classList.add('hidden');
@@ -339,12 +541,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // =========================================================================
-  // 5. Fetch & Populate User Repositories
-  // =========================================================================
   async function fetchUserReposList() {
     if (!selectUserRepo) return;
-
     try {
       selectUserRepo.innerHTML = '<option value="">Loading repositories from GitHub...</option>';
       const response = await chrome.runtime.sendMessage({ type: 'GITHUB_GET_REPOS' });
@@ -354,32 +552,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (authReposCount) authReposCount.textContent = `${repos.length} repos`;
 
         selectUserRepo.innerHTML = '<option value="">-- Choose an existing repository --</option>';
-
-        // Check if rag_leetsync already exists
-        let foundLeetSyncRepo = false;
-
         repos.forEach((repo) => {
           const opt = document.createElement('option');
           opt.value = repo.fullName;
           opt.textContent = `${repo.fullName} ${repo.private ? '🔒' : ''}`;
           opt.dataset.defaultBranch = repo.defaultBranch;
-          if (repo.name.toLowerCase() === 'rag_leetsync') {
-            foundLeetSyncRepo = true;
-          }
           selectUserRepo.appendChild(opt);
         });
-
-        if (foundLeetSyncRepo) {
-          logConsole('Found existing "rag_leetsync" repository.');
-        } else {
-          logConsole('Loaded user repositories list.');
-        }
       } else {
         selectUserRepo.innerHTML = '<option value="">Unable to load repositories</option>';
       }
     } catch (err) {
       console.error('Error fetching repos:', err);
-      selectUserRepo.innerHTML = '<option value="">Error loading repositories</option>';
     }
   }
 
@@ -409,9 +593,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // =========================================================================
-  // 6. Set / Save Target Repository
-  // =========================================================================
   if (btnSaveRepo) {
     btnSaveRepo.addEventListener('click', async () => {
       const repoName = inputCustomRepo ? inputCustomRepo.value.trim() : '';
@@ -434,15 +615,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (response && response.success) {
           showToast(`Repository set: ${response.repo.fullName} (${response.repo.branch})`, 'success');
-          logConsole(`Repository configured: ${response.repo.fullName} [${response.repo.branch}]`);
           await loadState();
         } else if (response && response.notFound) {
           showToast(`Repository '${repoName}' does not exist on GitHub yet. Click "Create New Repo" below to initialize it!`, 'error', 5000);
-          logConsole(`Repository '${repoName}' not found.`);
         } else {
-          const errMsg = response?.error || 'Failed to configure repository.';
-          showToast(errMsg, 'error');
-          logConsole(`Repo selection error: ${errMsg}`);
+          showToast(response?.error || 'Failed to configure repository.', 'error');
         }
       } catch (err) {
         showToast(`Error: ${err.message}`, 'error');
@@ -454,9 +631,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // =========================================================================
-  // 7. Create New Repository on GitHub
-  // =========================================================================
   if (btnCreateRepo) {
     btnCreateRepo.addEventListener('click', async () => {
       const repoName = inputCustomRepo ? inputCustomRepo.value.trim() || 'rag_leetsync' : 'rag_leetsync';
@@ -464,8 +638,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!confirmed) return;
 
       btnCreateRepo.disabled = true;
-      logConsole(`Creating GitHub repository "${repoName}"...`);
-
       try {
         const response = await chrome.runtime.sendMessage({
           type: 'GITHUB_CREATE_REPO',
@@ -474,12 +646,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (response && response.success) {
           showToast(`Repository "${response.repo.fullName}" created successfully!`, 'success');
-          logConsole(`Created remote repository: ${response.repo.fullName}`);
           await loadState();
         } else {
-          const errMsg = response?.error || 'Failed to create repository on GitHub.';
-          showToast(errMsg, 'error');
-          logConsole(`Repo creation error: ${errMsg}`);
+          showToast(response?.error || 'Failed to create repository.', 'error');
         }
       } catch (err) {
         showToast(`Creation error: ${err.message}`, 'error');
@@ -489,49 +658,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // =========================================================================
-  // 8. Test GitHub Commit Action
-  // =========================================================================
   if (btnTestSync) {
     btnTestSync.addEventListener('click', async () => {
       btnTestSync.disabled = true;
-      logConsole('Executing test commit via GitHub Contents API...');
       showToast('Pushing integration verification commit to GitHub...', 'info');
 
       try {
         const response = await chrome.runtime.sendMessage({ type: 'GITHUB_TEST_SYNC' });
-
         if (response && response.success) {
           const sha = response.commitSha ? response.commitSha.slice(0, 7) : 'verified';
           showToast(`Test commit created successfully (${sha})!`, 'success');
-          logConsole(`Live commit verified! SHA: ${sha}. File: RAG_SYNC_TEST.md`);
+          logConsole(`Verified live push! Commit: ${sha}. File: RAG_SYNC_TEST.md`);
           await loadState();
         } else {
-          const errMsg = response?.error || 'Failed to push test commit to GitHub.';
-          showToast(errMsg, 'error');
-          logConsole(`Test commit error: ${errMsg}`);
+          showToast(response?.error || 'Failed to push test commit.', 'error');
         }
       } catch (err) {
         showToast(`Sync error: ${err.message}`, 'error');
-        logConsole(`Test sync failed: ${err.message}`);
       } finally {
         btnTestSync.disabled = false;
       }
     });
   }
 
-  // =========================================================================
-  // 9. Disconnect GitHub
-  // =========================================================================
   if (btnDisconnectGithub) {
     btnDisconnectGithub.addEventListener('click', async () => {
-      const confirmed = confirm('Are you sure you want to disconnect your GitHub account and clear your stored token?');
+      const confirmed = confirm('Disconnect your GitHub account and clear stored token?');
       if (!confirmed) return;
 
       try {
         await chrome.runtime.sendMessage({ type: 'GITHUB_DISCONNECT' });
         showToast('GitHub account disconnected.', 'info');
-        logConsole('Account disconnected and credentials removed.');
         await loadState();
       } catch (err) {
         showToast(`Disconnect error: ${err.message}`, 'error');
@@ -540,7 +697,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // =========================================================================
-  // 10. Save Preferences (Settings Tab)
+  // 5. Settings Persistence
   // =========================================================================
   if (btnSaveSettings) {
     btnSaveSettings.addEventListener('click', async () => {
@@ -552,14 +709,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       };
 
       try {
-        const response = await chrome.runtime.sendMessage({
-          type: 'UPDATE_SETTINGS',
-          payload
-        });
-
+        const response = await chrome.runtime.sendMessage({ type: 'UPDATE_SETTINGS', payload });
         if (response && response.success) {
           showToast('Preferences saved successfully!', 'success');
-          logConsole('Sync preferences updated.');
           await loadState();
         } else {
           showToast('Failed to save settings.', 'error');
@@ -571,47 +723,36 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // =========================================================================
-  // 11. Diagnostics Actions
+  // 6. Diagnostics
   // =========================================================================
   if (btnPingWorker) {
     btnPingWorker.addEventListener('click', async () => {
-      logConsole('Pinging background service worker...');
+      logConsole('Pinging background worker...');
       try {
-        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-          const response = await chrome.runtime.sendMessage({ type: 'PING' });
-          if (response && response.status === 'PONG') {
-            const timeStr = response.timestamp.split('T')[1].replace('Z', '');
-            logConsole(`PONG from worker v${response.version} at ${timeStr}`);
-            if (headerStatusDot) headerStatusDot.style.background = '#10b981';
-          } else {
-            logConsole('Worker responded with unexpected payload.');
-          }
+        const response = await chrome.runtime.sendMessage({ type: 'PING' });
+        if (response && response.status === 'PONG') {
+          const time = response.timestamp.split('T')[1].replace('Z', '');
+          logConsole(`PONG from worker v${response.version} at ${time}`);
+          if (headerStatusDot) headerStatusDot.style.background = '#10b981';
         }
       } catch (err) {
-        logConsole(`Worker connection failed: ${err.message}`);
+        logConsole(`Worker ping failed: ${err.message}`);
       }
     });
   }
 
   if (btnCheckTab) {
     btnCheckTab.addEventListener('click', async () => {
-      logConsole('Inspecting active browser tab...');
+      logConsole('Checking current tab...');
       try {
-        if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query) {
-          const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-          if (activeTab && activeTab.url) {
-            const url = new URL(activeTab.url);
-            if (url.hostname.includes('leetcode.com')) {
-              logConsole(`Active tab is LeetCode: ${url.pathname}`);
-            } else {
-              logConsole(`Active tab: ${url.hostname} (not LeetCode)`);
-            }
-          } else {
-            logConsole('Unable to determine active tab URL.');
-          }
+        const response = await chrome.runtime.sendMessage({ type: 'INSPECT_ACTIVE_LEETCODE_TAB' });
+        if (response && response.isLeetCode) {
+          logConsole(`LeetCode tab detected: ${response.url}`);
+        } else {
+          logConsole(`Active tab is not LeetCode (${response?.hostname || 'unknown'}).`);
         }
       } catch (err) {
-        logConsole(`Tab inspection error: ${err.message}`);
+        logConsole(`Tab check error: ${err.message}`);
       }
     });
   }
@@ -622,6 +763,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Initial Load
+  // Initial load
   await loadState();
 });

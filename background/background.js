@@ -10,8 +10,14 @@ import {
   verifyRepository,
   createGitHubRepository,
   runTestCommit,
-  commitFileToGitHub
+  commitFileToGitHub,
+  commitMultipleFilesToGitHub
 } from './github-api.js';
+
+import {
+  buildProblemSyncBundle,
+  slugify
+} from './rag-templates.js';
 
 // Default initial state
 const DEFAULT_STATE = {
@@ -277,6 +283,155 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         console.log('[RAG_LeetSync] GitHub account disconnected and credentials cleared.');
         return { success: true };
+      }
+
+      case 'SYNC_PROBLEM': {
+        const problem = message.payload?.problem;
+        if (!problem || !problem.title || !problem.code) {
+          return { success: false, error: 'Problem title and solution code are required.' };
+        }
+
+        const { auth, settings, syncStatus, recentSyncs } = await chrome.storage.local.get([
+          'auth',
+          'settings',
+          'syncStatus',
+          'recentSyncs'
+        ]);
+
+        if (!auth?.token || !auth?.connected) {
+          return { success: false, error: 'GitHub is not authenticated. Please connect your GitHub account in settings.' };
+        }
+
+        const owner = auth.owner || auth.username;
+        const repo = auth.repo || 'rag_leetsync';
+        const branch = auth.branch || 'main';
+
+        const dirPattern = settings?.directoryPattern || 'problems/{difficulty}/{titleSlug}';
+        const commitMsgPattern = settings?.commitMessagePattern || 'Solved {title} [{difficulty}] - RAG_LeetSync';
+
+        // Build file bundle (solution.<ext>, README.md, metadata.json)
+        const bundle = buildProblemSyncBundle(problem, dirPattern, commitMsgPattern);
+
+        console.log(`[RAG_LeetSync] Committing solution for '${problem.title}' to ${owner}/${repo}:${branch} (${bundle.dirPath})`);
+
+        // Execute commit
+        const commitResult = await commitMultipleFilesToGitHub(
+          auth.token,
+          owner,
+          repo,
+          bundle.files,
+          bundle.commitMessage,
+          branch
+        );
+
+        if (!commitResult.success) {
+          console.error('[RAG_LeetSync] Commit failed:', commitResult.error);
+          return { success: false, error: commitResult.error };
+        }
+
+        // Record in recentSyncs & update metrics
+        const newRecord = {
+          id: problem.id || null,
+          title: problem.title,
+          difficulty: problem.difficulty || 'Easy',
+          language: problem.language || 'python3',
+          dirPath: bundle.dirPath,
+          commitSha: commitResult.commitSha,
+          commitUrl: commitResult.commitUrl,
+          syncedAt: new Date().toISOString()
+        };
+
+        const updatedRecentSyncs = [newRecord, ...(recentSyncs || [])].slice(0, 30);
+        const updatedStatus = {
+          ...syncStatus,
+          state: 'ready',
+          lastSyncedAt: new Date().toISOString(),
+          lastError: null,
+          totalSynced: (syncStatus?.totalSynced || 0) + 1
+        };
+
+        await chrome.storage.local.set({
+          recentSyncs: updatedRecentSyncs,
+          syncStatus: updatedStatus
+        });
+
+        console.log(`[RAG_LeetSync] Solution '${problem.title}' synced successfully! Commit: ${commitResult.commitSha}`);
+
+        return {
+          success: true,
+          commitSha: commitResult.commitSha,
+          commitUrl: commitResult.commitUrl,
+          dirPath: bundle.dirPath,
+          filesCount: bundle.files.length,
+          record: newRecord
+        };
+      }
+
+      case 'PREVIEW_PROBLEM_BUNDLE': {
+        const problem = message.payload?.problem;
+        if (!problem) {
+          return { success: false, error: 'Problem data required for preview.' };
+        }
+
+        const { settings } = await chrome.storage.local.get(['settings']);
+        const dirPattern = settings?.directoryPattern || 'problems/{difficulty}/{titleSlug}';
+        const commitMsgPattern = settings?.commitMessagePattern || 'Solved {title} [{difficulty}] - RAG_LeetSync';
+
+        const bundle = buildProblemSyncBundle(problem, dirPattern, commitMsgPattern);
+        return { success: true, bundle };
+      }
+
+      case 'INSPECT_ACTIVE_LEETCODE_TAB': {
+        try {
+          const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (!activeTab || !activeTab.url) {
+            return { success: false, error: 'No active tab found.' };
+          }
+
+          const url = new URL(activeTab.url);
+          if (!url.hostname.includes('leetcode.com')) {
+            return {
+              success: true,
+              isLeetCode: false,
+              hostname: url.hostname
+            };
+          }
+
+          // Check if it's a problem page: /problems/{slug}/
+          const match = url.pathname.match(/\/problems\/([^\/]+)/);
+          if (match && match[1]) {
+            const slug = match[1];
+            // Format title from slug
+            const title = slug
+              .split('-')
+              .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(' ');
+
+            return {
+              success: true,
+              isLeetCode: true,
+              isProblemPage: true,
+              slug,
+              title,
+              url: activeTab.url,
+              tabId: activeTab.id
+            };
+          }
+
+          return {
+            success: true,
+            isLeetCode: true,
+            isProblemPage: false,
+            url: activeTab.url
+          };
+        } catch (err) {
+          return { success: false, error: err.message };
+        }
+      }
+
+      case 'GET_RECENT_SYNCS': {
+        const { recentSyncs } = await chrome.storage.local.get(['recentSyncs']);
+        return { success: true, recentSyncs: recentSyncs || [] };
       }
 
       case 'UPDATE_SETTINGS': {

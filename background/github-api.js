@@ -315,3 +315,115 @@ This file confirms that **RAG_LeetSync** has verified write and commit access to
   const commitMsg = `chore: verify RAG_LeetSync repository access [${new Date().toLocaleDateString()}]`;
   return await commitFileToGitHub(token, owner, repo, testPath, testContent, commitMsg, branch);
 }
+
+/**
+ * Commits multiple files atomically to a GitHub repository using the Git Data API,
+ * with automatic fallback to Contents API if branch reference is not yet initialized.
+ * 
+ * @param {string} token - GitHub PAT
+ * @param {string} owner - Repository owner/organization
+ * @param {string} repo - Repository name
+ * @param {Array<{path: string, content: string}>} files - Array of files to commit
+ * @param {string} commitMessage - Commit message
+ * @param {string} branch - Target branch (default: 'main')
+ */
+export async function commitMultipleFilesToGitHub(token, owner, repo, files, commitMessage, branch = 'main') {
+  if (!files || files.length === 0) {
+    return { success: false, error: 'No files provided for commit.' };
+  }
+
+  // Attempt atomic commit via Git Database API
+  try {
+    // 1. Get current branch reference
+    const refRes = await githubRequest(`/repos/${owner}/${repo}/git/ref/heads/${branch}`, token);
+    const latestCommitSha = refRes.data.object.sha;
+
+    // 2. Get commit to retrieve base tree SHA
+    const commitRes = await githubRequest(`/repos/${owner}/${repo}/git/commits/${latestCommitSha}`, token);
+    const baseTreeSha = commitRes.data.tree.sha;
+
+    // 3. Post tree items
+    const treeItems = files.map((file) => ({
+      path: file.path.replace(/^\/+/, ''),
+      mode: '100644', // standard file
+      type: 'blob',
+      content: file.content
+    }));
+
+    const treeRes = await githubRequest(`/repos/${owner}/${repo}/git/trees`, token, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        base_tree: baseTreeSha,
+        tree: treeItems
+      })
+    });
+    const newTreeSha = treeRes.data.sha;
+
+    // 4. Create new commit pointing to parent commit
+    const newCommitRes = await githubRequest(`/repos/${owner}/${repo}/git/commits`, token, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: commitMessage,
+        tree: newTreeSha,
+        parents: [latestCommitSha]
+      })
+    });
+    const newCommitSha = newCommitRes.data.sha;
+
+    // 5. Update branch reference
+    await githubRequest(`/repos/${owner}/${repo}/git/refs/heads/${branch}`, token, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sha: newCommitSha,
+        force: false
+      })
+    });
+
+    return {
+      success: true,
+      commitSha: newCommitSha,
+      commitUrl: `https://github.com/${owner}/${repo}/commit/${newCommitSha}`,
+      filesCount: files.length,
+      mode: 'atomic'
+    };
+  } catch (error) {
+    console.warn('[RAG_LeetSync] Atomic Git tree commit failed or empty repo, falling back to sequential Contents API:', error.message);
+
+    // Fallback: Sequential commits via Contents API
+    try {
+      const results = [];
+      for (const file of files) {
+        const fileRes = await commitFileToGitHub(
+          token,
+          owner,
+          repo,
+          file.path,
+          file.content,
+          commitMessage,
+          branch
+        );
+        if (!fileRes.success) {
+          throw new Error(`Failed to commit file ${file.path}: ${fileRes.error}`);
+        }
+        results.push(fileRes);
+      }
+
+      const lastResult = results[results.length - 1];
+      return {
+        success: true,
+        commitSha: lastResult.commitSha,
+        commitUrl: lastResult.commitUrl,
+        filesCount: files.length,
+        mode: 'sequential'
+      };
+    } catch (fallbackError) {
+      return {
+        success: false,
+        error: fallbackError.message
+      };
+    }
+  }
+}

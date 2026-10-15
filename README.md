@@ -14,15 +14,17 @@
   - Manifest V3 architecture with background service worker
   - High-aesthetic popup dashboard and diagnostic utilities
   - Local storage initialization and clean modular file layout
-- [x] **Phase 2: Secure GitHub Authentication & Repository Selection** *(Completed)*
+- [x] **Phase 2: Secure GitHub Authentication & Repository Selection**
   - Personal Access Token (PAT) with direct one-click GitHub generator
   - Dynamic user repository fetch, picker, and one-click remote repo creation
   - End-to-end integration test commit verification via GitHub Contents REST API
   - Secure credential isolation in `chrome.storage.local` with masked display
-- [ ] **Phase 3: Manual Solution Upload & File Templating** *(Next)*
-  - Commit creation/update via GitHub REST API
-  - RAG metadata schema (difficulty, tags, runtime, memory, prompt)
-- [ ] **Phase 4: Automated LeetCode Submission Ingestion**
+- [x] **Phase 3: Manual Solution Upload & File Templating** *(Completed)*
+  - Multi-file atomic GitHub commit engine via Git Data API (trees & commits) with sequential fallback
+  - RAG metadata schema generator: formatted `solution.<ext>`, rich `README.md` with badges & intuition, and machine-readable `metadata.json`
+  - In-popup manual ingestion form with active tab auto-detection & sample solution loader
+  - Live RAG bundle preview drawer & recent ingestions dashboard tracker
+- [ ] **Phase 4: Automated LeetCode Submission Ingestion** *(Next)*
   - Detection of "Accepted" submissions
   - User source code extraction with manual fallback
 - [ ] **Phase 5: Sync History, Duplicate Prevention & Resilience**
@@ -45,14 +47,15 @@
 
 ```text
 rag_leetsync/
-├── manifest.json              # Chrome Manifest V3 configuration (v1.1)
+├── manifest.json              # Chrome Manifest V3 configuration (v1.2)
 ├── background/
 │   ├── background.js          # Service worker handling lifecycle & messages
-│   └── github-api.js          # Modular GitHub REST API client (Auth, Repos, Commits)
+│   ├── github-api.js          # Modular GitHub REST API client (Auth, Repos, Commits)
+│   └── rag-templates.js       # RAG metadata, schema generator & code formatting
 ├── popup/
-│   ├── popup.html             # Multi-tab dashboard, auth & settings UI
+│   ├── popup.html             # Multi-tab dashboard, sync form, auth & settings UI
 │   ├── popup.css              # Obsidian & Cyber Teal theme with animations
-│   └── popup.js               # Reactive popup controller & GitHub manager
+│   └── popup.js               # Reactive popup controller & sync manager
 ├── icons/                     # Extension icons (16px, 32px, 48px, 128px)
 │   ├── icon16.png
 │   ├── icon32.png
@@ -96,7 +99,13 @@ Follow these steps to load `RAG_LeetSync` locally in Google Chrome:
      - Choose an existing repository or click **Create New Repo** to initialize `rag_leetsync` on GitHub.
    - Return to the **Dashboard** tab:
      - Click **Test GitHub Commit** to run a live end-to-end commit test (`RAG_SYNC_TEST.md`) verified via the GitHub API.
-     - Click **View Repository** to inspect the repository directly on GitHub.
+
+6. **Test Phase 3 Solution Ingestion & RAG Generation**:
+   - Switch to the **Sync Solution** tab:
+     - Click **Load Sample Code** to pre-fill the form with a complete Two Sum solution, or click **Detect from Tab** while on a LeetCode problem page.
+     - Click **Preview RAG** to inspect the live generated directory path (`problems/easy/two-sum/`), `README.md` documentation, and `metadata.json` schema.
+     - Click **Sync to GitHub** to trigger an atomic multi-file commit via the GitHub Git Data API.
+     - Switch back to the **Dashboard** to see your problem logged in the **Recent Ingestions** list with a direct clickable link to the GitHub commit!
    - Switch to **Settings** to customize problem directory patterns and commit message templates.
 
 ---
