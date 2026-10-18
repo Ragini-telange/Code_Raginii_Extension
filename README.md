@@ -37,8 +37,11 @@
   - Difficulty filter pill tabs (`All`, `Easy`, `Medium`, `Hard`)
   - One-click JSON data export (`rag_leetsync_history.json`) for data analysis and vector database onboarding
   - Duplicate prevention toggle in Settings and safe cache reset utilities
-- [ ] **Phase 6: Release Packaging & Web Store Preparation** *(Next)*
-  - Automated linting, test verification, and packaged ZIP bundle
+- [x] **Phase 6: Release Packaging & Web Store Preparation** *(Completed)*
+  - Standalone release validation & packaging suite (`scripts/package.js`)
+  - Clean distribution ZIP bundle (`dist/rag_leetsync_v1.5.0.zip`) with SHA-256 integrity verification
+  - Chrome Web Store Developer review documentation & permission disclosures ([`STORE_LISTING.md`](./STORE_LISTING.md))
+  - Complete RAG vector database ingestion & AI tutor integration guide ([`RAG_GUIDE.md`](./RAG_GUIDE.md))
 
 ---
 
@@ -48,6 +51,7 @@
 - **Extension Spec**: Chrome Extension Manifest V3
 - **Storage**: Chrome Storage API (`chrome.storage.local`)
 - **APIs**: GitHub REST API v3, LeetCode DOM / Network observation
+- **Packaging**: Zero-dependency Node.js validation & packaging suite
 
 ---
 
@@ -55,11 +59,11 @@
 
 ```text
 rag_leetsync/
-├── manifest.json              # Chrome Manifest V3 configuration (v1.3)
+├── manifest.json              # Chrome Manifest V3 configuration (v1.5.0)
 ├── background/
-│   ├── background.js          # Service worker handling lifecycle & messages
+│   ├── background.js          # Service worker handling lifecycle, sync & queue
 │   ├── github-api.js          # Modular GitHub REST API client (Auth, Repos, Commits)
-│   └── rag-templates.js       # RAG metadata, schema generator & code formatting
+│   └── rag-templates.js       # RAG metadata, schema generator & code hashing
 ├── content/
 │   ├── main-world.js          # In-page Monaco & network submission interceptor
 │   ├── leetcode.js            # Content script observer & sync coordinator
@@ -73,8 +77,15 @@ rag_leetsync/
 │   ├── icon32.png
 │   ├── icon48.png
 │   └── icon128.png
+├── scripts/
+│   └── package.js             # Release packaging & validation suite (Zero dependencies)
+├── dist/                      # Packaged release archives & checksums
+│   ├── rag_leetsync_v1.5.0.zip
+│   └── rag_leetsync_v1.5.0.sha256
+├── STORE_LISTING.md           # Chrome Web Store submission & compliance guide
+├── RAG_GUIDE.md               # Vector DB & AI tutor ingestion guide (LangChain/Chroma)
 ├── .gitignore                 # Security ignore rules (protects tokens & env)
-└── README.md                  # Project documentation & roadmap
+└── README.md                  # Complete project documentation & roadmap
 ```
 
 ---
@@ -134,6 +145,20 @@ Follow these steps to load `RAG_LeetSync` locally in Google Chrome:
    - **Search & Difficulty Filters**: On the **Dashboard**, type in the search bar (e.g. `Two Sum` or `array`) to filter recent ingestions instantaneously. Click the `Easy`, `Medium`, or `Hard` filter pill badges.
    - **Offline Resilience Queue**: If your connection drops or GitHub encounters a rate-limit during submission, solutions are safely enqueued in `syncQueue`. The extension badge will display the pending count (`⚠️ 1 Pending`), with a one-click **Retry Now** button.
    - **Export History**: Click **Export JSON** to instantly download `rag_leetsync_history.json` containing complete metadata for all synced problems ready for vector DB ingestion.
+
+9. **Phase 6: Release Packaging & Web Store Preparation**:
+   - Run the automated validation & packaging script:
+     ```bash
+     node scripts/package.js
+     ```
+   - The script performs:
+     - Manifest V3 schema & version validation
+     - File existence verification for all background scripts, content scripts, popups, and icons
+     - JavaScript syntax check (`node -c`)
+     - Clean packaging into `dist/rag_leetsync_v1.5.0.zip`
+     - SHA-256 integrity hash generation (`dist/rag_leetsync_v1.5.0.sha256`)
+   - Consult [`STORE_LISTING.md`](./STORE_LISTING.md) for Chrome Web Store developer dashboard copy, permission disclosures, and privacy policies.
+   - Consult [`RAG_GUIDE.md`](./RAG_GUIDE.md) for end-to-end Python, LangChain, and ChromaDB vector database embedding and AI mock interview tutor recipes.
 
 ---
 
