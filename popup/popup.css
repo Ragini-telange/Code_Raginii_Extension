@@ -1304,3 +1304,119 @@ input:checked + .slider:before {
   background: rgba(56, 189, 248, 0.2);
   text-decoration: underline;
 }
+
+/* ==========================================================================
+   Phase 5: Sync History Search, Filters, Queue Alert & Resilience
+   ========================================================================== */
+.queue-alert-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--radius-md);
+  margin-bottom: 2px;
+  animation: slideDown 0.25s ease-out;
+}
+
+.queue-alert-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.queue-icon {
+  font-size: 15px;
+  color: var(--warning-amber);
+}
+
+.queue-alert-text-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.queue-text {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #fde68a;
+}
+
+.queue-subtext {
+  font-size: 10px;
+  color: #fbbf24;
+}
+
+.card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.text-danger {
+  color: var(--danger-rose) !important;
+}
+
+.text-danger:hover {
+  background: rgba(244, 63, 94, 0.1) !important;
+}
+
+.history-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 8px;
+  width: 13px;
+  height: 13px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.search-input {
+  padding-left: 28px !important;
+  font-size: 11px !important;
+  height: 28px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.filter-pills {
+  display: flex;
+  gap: 4px;
+}
+
+.filter-pill {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filter-pill:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.filter-pill.active {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: var(--accent-cyan);
+  font-weight: 600;
+}
+

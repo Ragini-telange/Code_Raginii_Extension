@@ -47,6 +47,19 @@ export function slugify(text = '') {
 }
 
 /**
+ * Computes deterministic hash of solution code for duplicate prevention
+ */
+export function computeCodeHash(code = '') {
+  const normalized = (code || '').trim().replace(/\r\n/g, '\n');
+  let hash = 5381;
+  for (let i = 0; i < normalized.length; i++) {
+    hash = ((hash << 5) + hash) + normalized.charCodeAt(i);
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return (hash >>> 0).toString(16);
+}
+
+/**
  * Resolves directory path for a problem based on user pattern settings
  */
 export function resolveProblemDirectory(pattern, problem) {

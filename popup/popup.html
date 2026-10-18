@@ -161,6 +161,18 @@
           </div>
         </section>
 
+        <!-- Offline Retry Queue Banner (shown when items exist in queue) -->
+        <div class="queue-alert-banner hidden" id="queue-alert-banner">
+          <div class="queue-alert-left">
+            <span class="queue-icon">⚡</span>
+            <div class="queue-alert-text-wrapper">
+              <span class="queue-text" id="queue-alert-text">1 problem pending offline sync</span>
+              <span class="queue-subtext">Will auto-retry or click to retry now</span>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-primary" id="btn-process-queue">Retry Now</button>
+        </div>
+
         <!-- Recent Syncs Card -->
         <section class="card recent-syncs-card">
           <div class="card-header">
@@ -169,16 +181,37 @@
                 <circle cx="12" cy="12" r="10"></circle>
                 <polyline points="12 6 12 12 16 14"></polyline>
               </svg>
-              <span class="card-title">Recent Ingestions</span>
+              <span class="card-title">Sync History</span>
             </div>
-            <a href="#" target="_blank" class="link-external" id="btn-view-repo">
-              <span>View Repo</span>
-              <svg class="mini-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                <polyline points="15 3 21 3 21 9"></polyline>
-                <line x1="10" y1="14" x2="21" y2="3"></line>
+            <div class="card-header-actions">
+              <button class="btn-text-action" id="btn-export-history" title="Export synced problems as JSON">Export</button>
+              <button class="btn-text-action text-danger" id="btn-clear-history" title="Clear local sync history">Clear</button>
+              <a href="#" target="_blank" class="link-external" id="btn-view-repo">
+                <span>Repo</span>
+                <svg class="mini-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+              </a>
+            </div>
+          </div>
+
+          <!-- History Search & Filter Bar -->
+          <div class="history-controls">
+            <div class="search-input-wrapper">
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
-            </a>
+              <input type="text" id="input-search-history" class="form-input search-input" placeholder="Search history by title or tag...">
+            </div>
+            <div class="filter-pills" id="history-filter-pills">
+              <button class="filter-pill active" data-filter="all">All</button>
+              <button class="filter-pill" data-filter="easy">Easy</button>
+              <button class="filter-pill" data-filter="medium">Medium</button>
+              <button class="filter-pill" data-filter="hard">Hard</button>
+            </div>
           </div>
 
           <div class="recent-syncs-list" id="recent-syncs-list">
@@ -518,6 +551,18 @@ Awaiting commands.</pre>
             </label>
           </div>
 
+          <!-- Prevent Duplicate Uploads Switch (Phase 5) -->
+          <div class="setting-row">
+            <div class="setting-meta">
+              <span class="setting-title">Prevent Duplicate Uploads</span>
+              <span class="setting-desc">Skip re-uploading if solution code is identical to current GitHub repository version.</span>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="setting-prevent-duplicates" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+
           <div class="form-group mt-2">
             <label class="form-label" for="setting-dir-pattern">Directory Pattern:</label>
             <input type="text" id="setting-dir-pattern" class="form-input font-mono" value="problems/{difficulty}/{titleSlug}">
@@ -538,7 +583,7 @@ Awaiting commands.</pre>
     <footer class="footer">
       <div class="footer-left">
         <span class="dot-online" id="footer-online-dot"></span>
-        <span class="footer-status" id="footer-status">Manifest V3 &bull; Phase 3 Active</span>
+        <span class="footer-status" id="footer-status">Manifest V3 &bull; Phase 5 Active</span>
       </div>
       <div class="footer-right">
         <a href="https://github.com" target="_blank" class="footer-link" id="footer-github-link">GitHub</a>

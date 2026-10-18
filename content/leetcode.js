@@ -295,17 +295,36 @@
       });
 
       if (response && response.success) {
-        const shortSha = response.commitSha ? response.commitSha.slice(0, 7) : 'done';
-        console.log(`[RAG_LeetSync] Solution automatically synced! Commit: ${shortSha}`);
+        if (response.duplicate) {
+          console.log(`[RAG_LeetSync] Duplicate solution detected for ${meta.title}. Skipped re-upload.`);
+          showToastNotification({
+            status: 'info',
+            message: `"${meta.title}" is already up to date on GitHub! (Identical code)`,
+            difficulty: meta.difficulty,
+            commitUrl: response.commitUrl,
+            repo: response.dirPath,
+            duration: 6500
+          });
+        } else {
+          const shortSha = response.commitSha ? response.commitSha.slice(0, 7) : 'done';
+          console.log(`[RAG_LeetSync] Solution automatically synced! Commit: ${shortSha}`);
 
+          showToastNotification({
+            status: 'success',
+            message: `Synced ${meta.title} (${shortSha})!`,
+            difficulty: meta.difficulty,
+            perf: `Beats ${submissionData.runtimePercentile ? `${submissionData.runtimePercentile}%` : 'top'} runtime`,
+            commitUrl: response.commitUrl,
+            repo: response.dirPath,
+            duration: 8000
+          });
+        }
+      } else if (response && response.enqueued) {
         showToastNotification({
-          status: 'success',
-          message: `Synced ${meta.title} (${shortSha})!`,
+          status: 'error',
+          message: `Network error. "${meta.title}" queued for offline retry.`,
           difficulty: meta.difficulty,
-          perf: `Beats ${submissionData.runtimePercentile ? `${submissionData.runtimePercentile}%` : 'top'} runtime`,
-          commitUrl: response.commitUrl,
-          repo: response.dirPath,
-          duration: 8000
+          duration: 7000
         });
       } else if (response && response.autoSyncDisabled) {
         showToastNotification({

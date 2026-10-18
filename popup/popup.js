@@ -1,7 +1,8 @@
 /**
- * RAG_LeetSync - Popup Interface Controller (Phase 3)
+ * RAG_LeetSync - Popup Interface Controller (Phase 5)
  * Handles tab navigation, GitHub authentication, repository management,
- * solution ingestion, RAG templating preview, recent syncs, and diagnostics.
+ * solution ingestion, RAG templating preview, sync history search/filtering,
+ * duplicate prevention settings, and offline retry queue management.
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -35,6 +36,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnDashSyncNow = document.getElementById('btn-dash-sync-now');
   const btnTestSync = document.getElementById('btn-test-sync');
   const btnViewRepo = document.getElementById('btn-view-repo');
+
+  // DOM Elements - Phase 5 History & Queue Controls
+  const queueAlertBanner = document.getElementById('queue-alert-banner');
+  const queueAlertText = document.getElementById('queue-alert-text');
+  const btnProcessQueue = document.getElementById('btn-process-queue');
+  const inputSearchHistory = document.getElementById('input-search-history');
+  const historyFilterPills = document.querySelectorAll('#history-filter-pills .filter-pill');
+  const btnExportHistory = document.getElementById('btn-export-history');
+  const btnClearHistory = document.getElementById('btn-clear-history');
   const recentSyncsList = document.getElementById('recent-syncs-list');
 
   // DOM Elements - Diagnostics
@@ -43,7 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnClearConsole = document.getElementById('btn-clear-console');
   const consoleOutput = document.getElementById('console-output');
 
-  // DOM Elements - Phase 3 Solution Sync Tab
+  // DOM Elements - Solution Sync Tab
   const syncProblemTitle = document.getElementById('sync-problem-title');
   const syncProblemId = document.getElementById('sync-problem-id');
   const syncDifficulty = document.getElementById('sync-difficulty');
@@ -92,11 +102,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   // DOM Elements - Settings Tab
   const settingAutoSync = document.getElementById('setting-auto-sync');
   const settingRagMetadata = document.getElementById('setting-rag-metadata');
+  const settingPreventDuplicates = document.getElementById('setting-prevent-duplicates');
   const settingDirPattern = document.getElementById('setting-dir-pattern');
   const settingCommitPattern = document.getElementById('setting-commit-pattern');
   const btnSaveSettings = document.getElementById('btn-save-settings');
 
   let toastTimeout = null;
+  let cachedRecentSyncs = [];
+  let currentDifficultyFilter = 'all';
+  let currentSearchQuery = '';
 
   // =========================================================================
   // Utilities & Logging
@@ -189,18 +203,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       const { auth, syncStatus, settings, recentSyncs } = response.data;
 
       // Update sync counter and settings
-      if (statSyncedCount) statSyncedCount.textContent = syncStatus?.totalSynced ?? 0;
+      if (statSyncedCount) statSyncedCount.textContent = syncStatus?.totalSynced ?? (recentSyncs ? recentSyncs.length : 0);
       if (statAutosyncState) statAutosyncState.textContent = settings?.autoSync ? 'ON' : 'OFF';
 
       if (settings) {
         if (settingAutoSync) settingAutoSync.checked = Boolean(settings.autoSync);
         if (settingRagMetadata) settingRagMetadata.checked = Boolean(settings.ragMetadataEnabled);
+        if (settingPreventDuplicates) settingPreventDuplicates.checked = settings.preventDuplicates !== false;
         if (settingDirPattern) settingDirPattern.value = settings.directoryPattern || 'problems/{difficulty}/{titleSlug}';
         if (settingCommitPattern) settingCommitPattern.value = settings.commitMessagePattern || 'Solved {title} [{difficulty}] - RAG_LeetSync';
       }
 
+      // Check and update offline queue status
+      await checkQueueStatus();
+
       // Render Recent Ingestions
-      renderRecentSyncs(recentSyncs || []);
+      cachedRecentSyncs = recentSyncs || [];
+      renderRecentSyncs();
 
       // Authentication State
       const isConnected = Boolean(auth && auth.connected && auth.username);
@@ -299,15 +318,57 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  function renderRecentSyncs(syncs = []) {
+  // =========================================================================
+  // 3. Phase 5: Filterable History & Queue Management
+  // =========================================================================
+  async function checkQueueStatus() {
+    try {
+      const response = await chrome.runtime.sendMessage({ type: 'GET_QUEUE_STATUS' });
+      if (response && response.success && response.count > 0) {
+        if (queueAlertBanner) queueAlertBanner.classList.remove('hidden');
+        if (queueAlertText) {
+          queueAlertText.textContent = `${response.count} solution${response.count > 1 ? 's' : ''} queued offline`;
+        }
+      } else {
+        if (queueAlertBanner) queueAlertBanner.classList.add('hidden');
+      }
+    } catch (e) {}
+  }
+
+  function renderRecentSyncs() {
     if (!recentSyncsList) return;
-    if (syncs.length === 0) {
-      recentSyncsList.innerHTML = '<div class="empty-syncs-notice">No problems synced yet. Click "Sync Solution" above to ingest your first problem!</div>';
+
+    let filtered = cachedRecentSyncs;
+
+    // Filter by difficulty pill
+    if (currentDifficultyFilter !== 'all') {
+      filtered = filtered.filter(
+        item => (item.difficulty || 'Easy').toLowerCase() === currentDifficultyFilter.toLowerCase()
+      );
+    }
+
+    // Filter by search query
+    if (currentSearchQuery.trim()) {
+      const query = currentSearchQuery.toLowerCase().trim();
+      filtered = filtered.filter(item => {
+        const titleMatch = (item.title || '').toLowerCase().includes(query);
+        const langMatch = (item.language || '').toLowerCase().includes(query);
+        const idMatch = String(item.id || '').includes(query);
+        return titleMatch || langMatch || idMatch;
+      });
+    }
+
+    if (filtered.length === 0) {
+      if (cachedRecentSyncs.length === 0) {
+        recentSyncsList.innerHTML = '<div class="empty-syncs-notice">No problems synced yet. Click "Sync Solution" above to ingest your first problem!</div>';
+      } else {
+        recentSyncsList.innerHTML = '<div class="empty-syncs-notice">No problems match your current search/filter.</div>';
+      }
       return;
     }
 
     recentSyncsList.innerHTML = '';
-    syncs.slice(0, 5).forEach((item) => {
+    filtered.slice(0, 15).forEach((item) => {
       const row = document.createElement('div');
       row.className = 'recent-sync-item';
 
@@ -329,8 +390,96 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // Search History Input
+  if (inputSearchHistory) {
+    inputSearchHistory.addEventListener('input', (e) => {
+      currentSearchQuery = e.target.value;
+      renderRecentSyncs();
+    });
+  }
+
+  // Difficulty Filter Pills
+  historyFilterPills.forEach((pill) => {
+    pill.addEventListener('click', () => {
+      historyFilterPills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      currentDifficultyFilter = pill.getAttribute('data-filter') || 'all';
+      renderRecentSyncs();
+    });
+  });
+
+  // Process Offline Queue Button
+  if (btnProcessQueue) {
+    btnProcessQueue.addEventListener('click', async () => {
+      btnProcessQueue.disabled = true;
+      showToast('Processing offline retry queue...', 'info');
+      logConsole('Draining offline retry queue...');
+
+      try {
+        const response = await chrome.runtime.sendMessage({ type: 'PROCESS_SYNC_QUEUE' });
+        if (response && response.success) {
+          showToast(`Queue processed: ${response.processed} synced, ${response.remaining} remaining.`, 'success');
+          logConsole(`Queue processed: ${response.processed} succeeded, ${response.remaining} remaining.`);
+          await loadState();
+        } else {
+          showToast(response?.error || 'Failed to process queue.', 'error');
+        }
+      } catch (err) {
+        showToast(`Queue processing error: ${err.message}`, 'error');
+      } finally {
+        btnProcessQueue.disabled = false;
+      }
+    });
+  }
+
+  // Export History as JSON
+  if (btnExportHistory) {
+    btnExportHistory.addEventListener('click', async () => {
+      try {
+        const response = await chrome.runtime.sendMessage({ type: 'EXPORT_HISTORY' });
+        if (response && response.success && response.exportData) {
+          const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(response.exportData, null, 2));
+          const downloadAnchor = document.createElement('a');
+          downloadAnchor.setAttribute('href', dataStr);
+          downloadAnchor.setAttribute('download', `rag_leetsync_history_${new Date().toISOString().split('T')[0]}.json`);
+          document.body.appendChild(downloadAnchor);
+          downloadAnchor.click();
+          downloadAnchor.remove();
+
+          showToast('Sync history exported to JSON!', 'success');
+          logConsole('Exported complete solution history JSON.');
+        } else {
+          showToast('Failed to export history.', 'error');
+        }
+      } catch (err) {
+        showToast(`Export error: ${err.message}`, 'error');
+      }
+    });
+  }
+
+  // Clear History
+  if (btnClearHistory) {
+    btnClearHistory.addEventListener('click', async () => {
+      const confirmed = confirm('Are you sure you want to clear your local sync history and duplicate cache? (This will not delete files from your GitHub repository).');
+      if (!confirmed) return;
+
+      try {
+        const response = await chrome.runtime.sendMessage({ type: 'CLEAR_HISTORY' });
+        if (response && response.success) {
+          cachedRecentSyncs = [];
+          renderRecentSyncs();
+          if (statSyncedCount) statSyncedCount.textContent = '0';
+          showToast('Local sync history cleared.', 'info');
+          logConsole('Local sync history and registry cleared.');
+        }
+      } catch (err) {
+        showToast(`Clear error: ${err.message}`, 'error');
+      }
+    });
+  }
+
   // =========================================================================
-  // 3. Phase 3: Solution Ingestion & Manual Sync Flow
+  // 4. Solution Ingestion Form & Preview (Sync Tab)
   // =========================================================================
   function collectProblemData() {
     return {
@@ -346,7 +495,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
-  // Load Sample Code
   if (btnLoadSample) {
     btnLoadSample.addEventListener('click', () => {
       if (syncProblemTitle) syncProblemTitle.value = 'Two Sum';
@@ -370,11 +518,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         return []`;
       }
       showToast('Loaded sample "Two Sum" solution!', 'info');
-      logConsole('Loaded Two Sum sample solution into ingestion form.');
+      logConsole('Loaded Two Sum sample solution into form.');
     });
   }
 
-  // Detect from active LeetCode Tab
   if (btnDetectTab) {
     btnDetectTab.addEventListener('click', async () => {
       btnDetectTab.disabled = true;
@@ -398,7 +545,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Preview RAG Bundle
   if (btnPreviewBundle) {
     btnPreviewBundle.addEventListener('click', async () => {
       const problem = collectProblemData();
@@ -437,7 +583,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Push Solution to GitHub
   if (btnSubmitSync) {
     btnSubmitSync.addEventListener('click', async () => {
       const problem = collectProblemData();
@@ -453,11 +598,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
-      // UI Loading state
       btnSubmitSync.disabled = true;
       if (syncSpinner) syncSpinner.classList.remove('hidden');
       if (btnSubmitSyncText) btnSubmitSyncText.textContent = 'Syncing to GitHub...';
-      logConsole(`Initiating multi-file commit for "${problem.title}"...`);
+      logConsole(`Initiating sync for "${problem.title}"...`);
       showToast(`Pushing "${problem.title}" to GitHub...`, 'info');
 
       try {
@@ -467,15 +611,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         if (response && response.success) {
-          const sha = response.commitSha ? response.commitSha.slice(0, 7) : 'done';
-          showToast(`"${problem.title}" successfully synced to GitHub (${sha})!`, 'success', 5000);
-          logConsole(`Solution committed! SHA: ${sha}. Path: ${response.dirPath}. Commit URL: ${response.commitUrl}`);
+          if (response.duplicate) {
+            showToast(`"${problem.title}" is already up to date on GitHub! (Identical code)`, 'info', 5000);
+            logConsole(`Duplicate detected for "${problem.title}". Skipped re-upload.`);
+          } else {
+            const sha = response.commitSha ? response.commitSha.slice(0, 7) : 'done';
+            showToast(`"${problem.title}" successfully synced to GitHub (${sha})!`, 'success', 5000);
+            logConsole(`Solution committed! SHA: ${sha}. Path: ${response.dirPath}.`);
+          }
 
-          // Reload state and recent list
           await loadState();
-
-          // Switch back to dashboard after brief pause to show updated recent syncs
           setTimeout(() => switchTab('tab-dashboard'), 1500);
+        } else if (response && response.enqueued) {
+          showToast(`Network error. "${problem.title}" queued for offline retry.`, 'error', 6000);
+          await loadState();
         } else {
           const errMsg = response?.error || 'Failed to sync solution to GitHub.';
           showToast(errMsg, 'error', 6000);
@@ -493,7 +642,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // =========================================================================
-  // 4. GitHub Auth & Token Flow
+  // 5. GitHub Auth & Repository Selection
   // =========================================================================
   if (btnToggleTokenVis && inputGithubToken) {
     btnToggleTokenVis.addEventListener('click', () => {
@@ -527,9 +676,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           logConsole(`Token validated for @${response.user.login}.`);
           await loadState();
         } else {
-          const errMsg = response?.error || 'Failed to authenticate token with GitHub.';
-          showToast(errMsg, 'error');
-          logConsole(`GitHub auth error: ${errMsg}`);
+          showToast(response?.error || 'Failed to authenticate token with GitHub.', 'error');
         }
       } catch (err) {
         showToast(`Connection error: ${err.message}`, 'error');
@@ -697,13 +844,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // =========================================================================
-  // 5. Settings Persistence
+  // 6. Settings Persistence
   // =========================================================================
   if (btnSaveSettings) {
     btnSaveSettings.addEventListener('click', async () => {
       const payload = {
         autoSync: Boolean(settingAutoSync?.checked),
         ragMetadataEnabled: Boolean(settingRagMetadata?.checked),
+        preventDuplicates: Boolean(settingPreventDuplicates?.checked),
         directoryPattern: settingDirPattern ? settingDirPattern.value.trim() : 'problems/{difficulty}/{titleSlug}',
         commitMessagePattern: settingCommitPattern ? settingCommitPattern.value.trim() : 'Solved {title} [{difficulty}] - RAG_LeetSync'
       };
@@ -723,7 +871,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // =========================================================================
-  // 6. Diagnostics
+  // 7. Diagnostics
   // =========================================================================
   if (btnPingWorker) {
     btnPingWorker.addEventListener('click', async () => {

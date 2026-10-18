@@ -30,9 +30,14 @@
   - Automatic detection of "Accepted" state, runtime percentiles, and memory percentiles
   - Floating in-page sync notification widget (`content/content.css`) on `leetcode.com` with direct commit links
   - Native Chrome desktop notification integration upon successful push
-- [ ] **Phase 5: Sync History, Duplicate Prevention & Resilience** *(Next)*
-  - Upload history dashboard, retry queues, and notification toasts
-- [ ] **Phase 6: Release Packaging & Web Store Preparation**
+- [x] **Phase 5: Sync History, Duplicate Prevention & Resilience** *(Completed)*
+  - Cryptographic duplicate prevention engine (`syncedRegistry`) computing normalized code hashes (`computeCodeHash`) to prevent redundant commits
+  - Offline retry queue (`syncQueue`) with automatic failure recovery, badge alerts, and manual flush
+  - Real-time sync history dashboard with instant search filter by title, slug, or tags
+  - Difficulty filter pill tabs (`All`, `Easy`, `Medium`, `Hard`)
+  - One-click JSON data export (`rag_leetsync_history.json`) for data analysis and vector database onboarding
+  - Duplicate prevention toggle in Settings and safe cache reset utilities
+- [ ] **Phase 6: Release Packaging & Web Store Preparation** *(Next)*
   - Automated linting, test verification, and packaged ZIP bundle
 
 ---
@@ -123,6 +128,12 @@ Follow these steps to load `RAG_LeetSync` locally in Google Chrome:
      - Automatic extraction of Monaco editor code, execution runtime, memory percentiles, and problem tags.
      - Confirmation with direct commit link: *"Synced [title] (commit SHA)!"*
    - A native desktop notification will also confirm the push.
+
+8. **Test Phase 5 Duplicate Prevention, Retry Queue & History Search**:
+   - **Duplicate Detection**: Submit the exact same accepted solution a second time. The in-page toast and popup will notify: *"Already up to date on GitHub! (Skipped duplicate commit)"*, saving API calls and keeping commit history clean.
+   - **Search & Difficulty Filters**: On the **Dashboard**, type in the search bar (e.g. `Two Sum` or `array`) to filter recent ingestions instantaneously. Click the `Easy`, `Medium`, or `Hard` filter pill badges.
+   - **Offline Resilience Queue**: If your connection drops or GitHub encounters a rate-limit during submission, solutions are safely enqueued in `syncQueue`. The extension badge will display the pending count (`⚠️ 1 Pending`), with a one-click **Retry Now** button.
+   - **Export History**: Click **Export JSON** to instantly download `rag_leetsync_history.json` containing complete metadata for all synced problems ready for vector DB ingestion.
 
 ---
 

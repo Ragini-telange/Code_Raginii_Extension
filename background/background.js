@@ -16,7 +16,8 @@ import {
 
 import {
   buildProblemSyncBundle,
-  slugify
+  slugify,
+  computeCodeHash
 } from './rag-templates.js';
 
 // Default initial state
@@ -44,9 +45,12 @@ const DEFAULT_STATE = {
     directoryPattern: 'problems/{difficulty}/{titleSlug}',
     commitMessagePattern: 'Solved {title} [{difficulty}] - RAG_LeetSync',
     ragMetadataEnabled: true,
-    targetBranch: 'main'
+    targetBranch: 'main',
+    preventDuplicates: true
   },
-  recentSyncs: []
+  recentSyncs: [],
+  syncedRegistry: {}, // maps slug -> { codeHash, lastSyncedAt, commitSha, language, dirPath }
+  syncQueue: []       // offline retry queue: [{ id, problem, enqueuedAt, attempts, lastError }]
 };
 
 // Initialize default state on extension installation or update
@@ -76,20 +80,43 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 });
 
 /**
- * Shared synchronization orchestrator for both manual and automated LeetCode ingestion
+ * Shared synchronization orchestrator for both manual and automated LeetCode ingestion.
+ * Includes duplicate prevention and offline queue resilience.
  */
-async function processProblemSync(problem) {
-  const { auth, settings, syncStatus, recentSyncs } = await chrome.storage.local.get([
+async function processProblemSync(problem, options = {}) {
+  const { auth, settings, syncStatus, recentSyncs, syncedRegistry, syncQueue } = await chrome.storage.local.get([
     'auth',
     'settings',
     'syncStatus',
-    'recentSyncs'
+    'recentSyncs',
+    'syncedRegistry',
+    'syncQueue'
   ]);
 
   if (!auth?.token || !auth?.connected) {
     return {
       success: false,
       error: 'GitHub is not authenticated. Please open RAG_LeetSync and configure your Personal Access Token.'
+    };
+  }
+
+  const slug = problem.titleSlug || slugify(problem.title || 'untitled');
+  const codeHash = computeCodeHash(problem.code);
+
+  // 1. Duplicate Prevention Check
+  const registry = syncedRegistry || {};
+  const existingSync = registry[slug];
+
+  if (settings?.preventDuplicates !== false && !options.forceSync && existingSync && existingSync.codeHash === codeHash) {
+    console.log(`[RAG_LeetSync] Duplicate detected for '${problem.title}'. Code unchanged since commit ${existingSync.commitSha}. Skipping re-upload.`);
+    return {
+      success: true,
+      duplicate: true,
+      message: 'Solution code is identical to existing version on GitHub. Skipped re-upload.',
+      commitSha: existingSync.commitSha,
+      commitUrl: existingSync.commitUrl,
+      dirPath: existingSync.dirPath,
+      record: existingSync
     };
   }
 
@@ -105,7 +132,7 @@ async function processProblemSync(problem) {
 
   console.log(`[RAG_LeetSync] Ingesting problem: "${problem.title}" to ${owner}/${repo} (${bundle.dirPath})`);
 
-  // Execute atomic commit
+  // Execute commit via GitHub API
   const commitResult = await commitMultipleFilesToGitHub(
     auth.token,
     owner,
@@ -115,24 +142,55 @@ async function processProblemSync(problem) {
     branch
   );
 
+  // 2. Resilience & Offline Retry Queue Handling
   if (!commitResult.success) {
-    console.error('[RAG_LeetSync] Commit execution failed:', commitResult.error);
-    return { success: false, error: commitResult.error };
+    console.warn('[RAG_LeetSync] Commit failed, adding to retry queue:', commitResult.error);
+    const queue = syncQueue || [];
+    const queueItem = {
+      id: `queue_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      problem,
+      enqueuedAt: new Date().toISOString(),
+      attempts: 1,
+      lastError: commitResult.error
+    };
+
+    const updatedQueue = [...queue.filter(q => q.problem.title !== problem.title), queueItem].slice(-25);
+    await chrome.storage.local.set({ syncQueue: updatedQueue });
+
+    return {
+      success: false,
+      enqueued: true,
+      error: commitResult.error,
+      message: 'Network or API error. Queued for automatic retry.'
+    };
   }
 
-  // Update recent sync history & metrics
+  // 3. Update Registry, Recent History & Metrics on Success
   const newRecord = {
     id: problem.id || null,
     title: problem.title,
+    titleSlug: slug,
     difficulty: problem.difficulty || 'Easy',
     language: problem.language || 'python3',
     dirPath: bundle.dirPath,
     commitSha: commitResult.commitSha,
     commitUrl: commitResult.commitUrl,
+    codeHash: codeHash,
     syncedAt: new Date().toISOString()
   };
 
-  const updatedRecentSyncs = [newRecord, ...(recentSyncs || [])].slice(0, 30);
+  const updatedRegistry = {
+    ...registry,
+    [slug]: {
+      ...newRecord,
+      lastSyncedAt: new Date().toISOString()
+    }
+  };
+
+  // Remove from retry queue if it was queued
+  const updatedQueue = (syncQueue || []).filter(item => (item.problem.titleSlug || slugify(item.problem.title)) !== slug);
+
+  const updatedRecentSyncs = [newRecord, ...(recentSyncs || []).filter(r => (r.titleSlug || slugify(r.title)) !== slug)].slice(0, 50);
   const updatedStatus = {
     ...syncStatus,
     state: 'ready',
@@ -143,6 +201,8 @@ async function processProblemSync(problem) {
 
   await chrome.storage.local.set({
     recentSyncs: updatedRecentSyncs,
+    syncedRegistry: updatedRegistry,
+    syncQueue: updatedQueue,
     syncStatus: updatedStatus
   });
 
@@ -166,6 +226,54 @@ async function processProblemSync(problem) {
     dirPath: bundle.dirPath,
     filesCount: bundle.files.length,
     record: newRecord
+  };
+}
+
+/**
+ * Drains and retries all pending items in the offline retry queue
+ */
+async function processSyncQueue() {
+  const { syncQueue, auth } = await chrome.storage.local.get(['syncQueue', 'auth']);
+  if (!syncQueue || syncQueue.length === 0) {
+    return { success: true, processed: 0, remaining: 0, message: 'Retry queue is empty.' };
+  }
+
+  if (!auth?.token || !auth?.connected) {
+    return { success: false, error: 'GitHub is not authenticated.', remaining: syncQueue.length };
+  }
+
+  console.log(`[RAG_LeetSync] Draining sync queue (${syncQueue.length} items)...`);
+  const queueToProcess = [...syncQueue];
+  const results = [];
+  const remainingQueue = [];
+
+  for (const item of queueToProcess) {
+    try {
+      const res = await processProblemSync(item.problem, { forceSync: true });
+      if (res.success) {
+        results.push({ id: item.id, title: item.problem.title, status: 'synced', commitSha: res.commitSha });
+      } else {
+        item.attempts = (item.attempts || 1) + 1;
+        item.lastError = res.error;
+        remainingQueue.push(item);
+        results.push({ id: item.id, title: item.problem.title, status: 'failed', error: res.error });
+      }
+    } catch (err) {
+      item.attempts = (item.attempts || 1) + 1;
+      item.lastError = err.message;
+      remainingQueue.push(item);
+      results.push({ id: item.id, title: item.problem.title, status: 'failed', error: err.message });
+    }
+  }
+
+  await chrome.storage.local.set({ syncQueue: remainingQueue });
+
+  return {
+    success: true,
+    processed: results.filter(r => r.status === 'synced').length,
+    failed: remainingQueue.length,
+    remaining: remainingQueue.length,
+    results
   };
 }
 
@@ -475,6 +583,64 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const updated = { ...settings, ...newSettings };
         await chrome.storage.local.set({ settings: updated });
         return { success: true, settings: updated };
+      }
+
+      case 'PROCESS_SYNC_QUEUE': {
+        const result = await processSyncQueue();
+        return result;
+      }
+
+      case 'GET_QUEUE_STATUS': {
+        const { syncQueue } = await chrome.storage.local.get(['syncQueue']);
+        const queue = syncQueue || [];
+        return {
+          success: true,
+          count: queue.length,
+          items: queue
+        };
+      }
+
+      case 'CLEAR_SYNC_QUEUE': {
+        await chrome.storage.local.set({ syncQueue: [] });
+        return { success: true };
+      }
+
+      case 'CLEAR_HISTORY': {
+        const { syncStatus } = await chrome.storage.local.get(['syncStatus']);
+        await chrome.storage.local.set({
+          recentSyncs: [],
+          syncedRegistry: {},
+          syncStatus: {
+            ...(syncStatus || {}),
+            totalSynced: 0
+          }
+        });
+        return { success: true };
+      }
+
+      case 'EXPORT_HISTORY': {
+        const { auth, recentSyncs, syncedRegistry, settings } = await chrome.storage.local.get([
+          'auth',
+          'recentSyncs',
+          'syncedRegistry',
+          'settings'
+        ]);
+
+        const exportData = {
+          version: '1.4.0',
+          exportedAt: new Date().toISOString(),
+          user: {
+            username: auth?.username,
+            repository: `${auth?.owner || auth?.username}/${auth?.repo || 'rag_leetsync'}`,
+            branch: auth?.branch || 'main'
+          },
+          settings: settings || {},
+          totalSynced: recentSyncs ? recentSyncs.length : 0,
+          problems: recentSyncs || [],
+          registry: syncedRegistry || {}
+        };
+
+        return { success: true, exportData };
       }
 
       default:
