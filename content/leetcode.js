@@ -3,9 +3,10 @@
  * Runs on https://leetcode.com/problems/* to observe submissions,
  * extract accepted code, and coordinate automatic synchronization to GitHub.
  *
- * NOTE: Popup notifications are silenced for duplicates and page loads.
- * A simple, minimal notification pill is shown ONLY when a unique submission
- * is successfully committed to GitHub.
+ * NOTE:
+ * - Only full "Submit" actions can trigger commits. "Run Code" test runs are strictly ignored.
+ * - Duplicate submissions with identical code are prevented and completely silent.
+ * - Simple, minimal notification pill is shown ONLY when a unique submission is committed.
  */
 
 (function () {
@@ -17,7 +18,10 @@
   let isSyncing = false;
   let toastTimeout = null;
 
-  // Track recent submit button clicks to prevent DOM observer from firing on reloads
+  // In-memory duplicate cache to prevent multiple submissions of identical code
+  const processedCodeCache = new Set();
+
+  // Track recent submit button clicks to distinguish Submit from Run Code
   let recentSubmitClicked = false;
   let recentSubmitTimer = null;
 
@@ -27,7 +31,18 @@
     const btn = target.closest('button');
     if (btn) {
       const text = (btn.textContent || '').trim().toLowerCase();
-      if (text.includes('submit') || btn.getAttribute('data-cy') === 'submit-code-btn') {
+      const cy = btn.getAttribute('data-cy') || '';
+
+      // If user clicked "Run" / "Run Code", explicitly cancel any submission tracking
+      if (text.includes('run') || cy === 'run-code-btn') {
+        recentSubmitClicked = false;
+        if (recentSubmitTimer) clearTimeout(recentSubmitTimer);
+        console.log('[Code_Raginii] "Run Code" button clicked - auto-sync disabled.');
+        return;
+      }
+
+      // If user clicked "Submit", activate submission window
+      if (text === 'submit' || text.startsWith('submit') || cy === 'submit-code-btn') {
         recentSubmitClicked = true;
         if (recentSubmitTimer) clearTimeout(recentSubmitTimer);
         recentSubmitTimer = setTimeout(() => {
@@ -260,16 +275,23 @@
     if (lastProcessedSubmissionId && lastProcessedSubmissionId === submissionId) {
       return;
     }
-    lastProcessedSubmissionId = submissionId;
-    isSyncing = true;
 
     const meta = extractProblemMetadata();
     const code = submissionData.code || extractCodeFromDOM();
 
     if (!code) {
-      isSyncing = false;
       return;
     }
+
+    // In-memory duplicate check: prevent submitting identical code multiple times
+    const codeKey = `${meta.titleSlug}:${code.trim()}`;
+    if (processedCodeCache.has(codeKey)) {
+      console.log('[Code_Raginii] Solution code already synced in this session. Skipping duplicate.');
+      return;
+    }
+
+    lastProcessedSubmissionId = submissionId;
+    isSyncing = true;
 
     const problemPayload = {
       id: submissionData.questionId || meta.id,
@@ -295,11 +317,13 @@
       });
 
       if (response && response.success) {
+        processedCodeCache.add(codeKey);
+
         if (response.duplicate) {
-          // DUPLICATE: Completely silent, no irritating popup!
+          // DUPLICATE: Completely silent, no duplicate commit, no popup!
           console.log(`[Code_Raginii] "${meta.title}" is already up to date on GitHub. Duplicate skipped silently.`);
         } else {
-          // UNIQUE NEW SUBMISSION COMMITTED: Show simple, sleek notification
+          // UNIQUE NEW SUBMISSION COMMITTED: Show simple notification pill
           const shortSha = response.commitSha ? response.commitSha.slice(0, 7) : '';
           console.log(`[Code_Raginii] Synced unique submission! Commit: ${shortSha}`);
           showSimpleCommittedToast({
@@ -329,13 +353,16 @@
     }
   });
 
-  // Secondary fallback: MutationObserver only when user recently clicked submit
+  // Secondary fallback: MutationObserver only when user recently clicked Submit (not Run)
   let observerDebounce = null;
   const domObserver = new MutationObserver(() => {
     if (isSyncing || !recentSubmitClicked) return;
     if (observerDebounce) clearTimeout(observerDebounce);
     observerDebounce = setTimeout(() => {
+      // Ensure we are looking at the submission result panel, NOT the test result panel
+      const testResultActive = document.querySelector('[data-layout-path*="testcase"], #test-result, div:has(> button:focus)');
       const bodyText = document.body ? document.body.innerText : '';
+
       if (bodyText.includes('Accepted') && bodyText.includes('testcases passed')) {
         recentSubmitClicked = false;
         handleAcceptedSubmission({
@@ -343,7 +370,7 @@
           source: 'DOM_OBSERVER'
         });
       }
-    }, 600);
+    }, 700);
   });
 
   domObserver.observe(document.body, { childList: true, subtree: true });

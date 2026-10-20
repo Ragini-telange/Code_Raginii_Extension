@@ -81,34 +81,49 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   }
 });
 
+// In-flight concurrency lock to prevent duplicate commits for simultaneous events
+const activeSyncLocks = new Set();
+
 /**
  * Core synchronization orchestrator: uploads accepted solution and updates repository root README.
  */
 async function processProblemSync(problem, options = {}) {
-  const { auth, settings, syncStatus, syncedRegistry } = await chrome.storage.local.get([
-    'auth',
-    'settings',
-    'syncStatus',
-    'syncedRegistry'
-  ]);
+  const slug = problem.titleSlug || slugify(problem.title || 'untitled');
 
-  if (!auth?.token || !auth?.connected) {
-    const errStatus = {
-      ...syncStatus,
-      state: 'error',
-      latestMessage: 'Upload failed — GitHub is not connected',
-      lastError: 'GitHub is not authenticated. Please open Code_Raginii and connect your account.'
-    };
-    await chrome.storage.local.set({ syncStatus: errStatus });
+  if (activeSyncLocks.has(slug)) {
+    console.log(`[Code_Raginii] Concurrency lock: Sync already running for '${slug}'. Duplicate skipped.`);
     return {
-      success: false,
-      error: 'GitHub is not authenticated. Please open Code_Raginii and connect your account.'
+      success: true,
+      duplicate: true,
+      message: 'Sync already in progress for this problem.'
     };
   }
+  activeSyncLocks.add(slug);
 
-  const slug = problem.titleSlug || slugify(problem.title || 'untitled');
-  const codeHash = computeCodeHash(problem.code);
-  const submissionId = problem.submissionId || null;
+  try {
+    const { auth, settings, syncStatus, syncedRegistry } = await chrome.storage.local.get([
+      'auth',
+      'settings',
+      'syncStatus',
+      'syncedRegistry'
+    ]);
+
+    if (!auth?.token || !auth?.connected) {
+      const errStatus = {
+        ...syncStatus,
+        state: 'error',
+        latestMessage: 'Upload failed — GitHub is not connected',
+        lastError: 'GitHub is not authenticated. Please open Code_Raginii and connect your account.'
+      };
+      await chrome.storage.local.set({ syncStatus: errStatus });
+      return {
+        success: false,
+        error: 'GitHub is not authenticated. Please open Code_Raginii and connect your account.'
+      };
+    }
+
+    const codeHash = computeCodeHash(problem.code);
+    const submissionId = problem.submissionId || null;
 
   // 1. Duplicate Prevention Check
   const registry = syncedRegistry || {};
@@ -260,13 +275,16 @@ async function processProblemSync(problem, options = {}) {
     }
   } catch (e) {}
 
-  return {
-    success: true,
-    commitSha: commitResult.commitSha,
-    commitUrl: commitResult.commitUrl,
-    dirPath: bundle.dirPath,
-    record: completedRecord
-  };
+    return {
+      success: true,
+      commitSha: commitResult.commitSha,
+      commitUrl: commitResult.commitUrl,
+      dirPath: bundle.dirPath,
+      record: completedRecord
+    };
+  } finally {
+    activeSyncLocks.delete(slug);
+  }
 }
 
 // Main message router
