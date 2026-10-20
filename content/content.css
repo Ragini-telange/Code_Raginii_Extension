@@ -1,41 +1,46 @@
 /* ==========================================================================
    Code_Raginii - In-Page Content Script Styles
-   Displays floating sync notifications and status on leetcode.com
+   Minimal, non-intrusive notification pill for unique committed solutions.
    ========================================================================== */
 
 #code-raginii-toast {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  z-index: 999999;
-  min-width: 300px;
-  max-width: 380px;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(99, 102, 241, 0.35);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px rgba(99, 102, 241, 0.2);
-  border-radius: 12px;
-  padding: 12px 14px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  color: #f8fafc;
-  font-size: 13px;
-  line-height: 1.4;
-  user-select: none;
-  animation: codeRaginiiSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 2147483647;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  pointer-events: auto;
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-#code-raginii-toast.hidden {
+#code-raginii-toast.code-raginii-toast-hidden {
   opacity: 0;
   pointer-events: none;
-  transform: translateY(12px);
+  transform: translateY(10px) scale(0.97);
 }
 
-@keyframes codeRaginiiSlideIn {
+.code-raginii-toast-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 12px rgba(34, 197, 94, 0.2);
+  border-radius: 9999px;
+  padding: 8px 14px;
+  color: #f8fafc;
+  font-size: 13px;
+  line-height: 1;
+  user-select: none;
+  animation: codeRaginiiPillIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes codeRaginiiPillIn {
   from {
     opacity: 0;
-    transform: translateY(20px) scale(0.96);
+    transform: translateY(12px) scale(0.95);
   }
   to {
     opacity: 1;
@@ -43,31 +48,38 @@
   }
 }
 
-.code-raginii-toast-header {
-  display: flex;
+.code-raginii-toast-check {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #052e16;
+  font-weight: 800;
+  font-size: 11px;
+  flex-shrink: 0;
 }
 
-.code-raginii-toast-brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.code-raginii-toast-text {
+  font-weight: 600;
+  color: #f1f5f9;
+  white-space: nowrap;
 }
 
-.code-raginii-toast-logo {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  object-fit: cover;
+.code-raginii-toast-link {
+  color: #38bdf8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: color 0.15s ease;
+  white-space: nowrap;
 }
 
-.code-raginii-toast-title {
-  font-weight: 700;
-  font-size: 13px;
-  color: #a5b4fc;
-  letter-spacing: -0.01em;
+.code-raginii-toast-link:hover {
+  color: #7dd3fc;
 }
 
 .code-raginii-toast-close {
@@ -75,91 +87,15 @@
   border: none;
   color: #94a3b8;
   font-size: 16px;
-  cursor: pointer;
   line-height: 1;
-  padding: 0 4px;
+  cursor: pointer;
+  padding: 0 2px;
+  margin-left: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .code-raginii-toast-close:hover {
   color: #f8fafc;
-}
-
-.code-raginii-toast-body {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.code-raginii-status-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.code-raginii-pulse-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #38bdf8;
-  box-shadow: 0 0 8px #38bdf8;
-  flex-shrink: 0;
-}
-
-.code-raginii-pulse-dot.success {
-  background: #22c55e;
-  box-shadow: 0 0 8px #22c55e;
-}
-
-.code-raginii-pulse-dot.error {
-  background: #ef4444;
-  box-shadow: 0 0 8px #ef4444;
-}
-
-.code-raginii-toast-msg {
-  font-weight: 500;
-  color: #f1f5f9;
-  font-size: 13px;
-}
-
-.code-raginii-toast-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: #94a3b8;
-  margin-top: 2px;
-}
-
-.code-raginii-badge {
-  background: rgba(99, 102, 241, 0.2);
-  color: #c7d2fe;
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.code-raginii-toast-footer {
-  margin-top: 8px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.code-raginii-btn {
-  background: #6366f1;
-  color: #ffffff;
-  text-decoration: none;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 6px;
-  transition: background 0.15s ease;
-}
-
-.code-raginii-btn:hover {
-  background: #4f46e5;
-}
-
-.code-raginii-btn.hidden {
-  display: none;
 }

@@ -2,6 +2,10 @@
  * Code_Raginii - Content Script for LeetCode
  * Runs on https://leetcode.com/problems/* to observe submissions,
  * extract accepted code, and coordinate automatic synchronization to GitHub.
+ *
+ * NOTE: Popup notifications are silenced for duplicates and page loads.
+ * A simple, minimal notification pill is shown ONLY when a unique submission
+ * is successfully committed to GitHub.
  */
 
 (function () {
@@ -12,6 +16,26 @@
   let lastProcessedSubmissionId = null;
   let isSyncing = false;
   let toastTimeout = null;
+
+  // Track recent submit button clicks to prevent DOM observer from firing on reloads
+  let recentSubmitClicked = false;
+  let recentSubmitTimer = null;
+
+  document.addEventListener('click', (e) => {
+    const target = e.target;
+    if (!target) return;
+    const btn = target.closest('button');
+    if (btn) {
+      const text = (btn.textContent || '').trim().toLowerCase();
+      if (text.includes('submit') || btn.getAttribute('data-cy') === 'submit-code-btn') {
+        recentSubmitClicked = true;
+        if (recentSubmitTimer) clearTimeout(recentSubmitTimer);
+        recentSubmitTimer = setTimeout(() => {
+          recentSubmitClicked = false;
+        }, 30000);
+      }
+    }
+  }, true);
 
   // =========================================================================
   // 1. Problem Metadata Extraction from DOM & URL
@@ -123,7 +147,6 @@
     let runtimePercentile = null;
     let memoryPercentile = null;
 
-    const runtimeEl = document.querySelector('[class*="runtime"], div:has(> [class*="runtime"])');
     const fullBody = document.body ? document.body.innerText : '';
     const rtMatch = fullBody.match(/Runtime\s*([0-9]+\s*ms)(?:\s*Beats\s*([0-9.]+)%)?/i);
     if (rtMatch) {
@@ -152,16 +175,14 @@
   }
 
   /**
-   * Code extraction from Monaco Editor DOM
+   * Code extraction from Monaco Editor DOM or main world helper
    */
   function extractCodeFromDOM() {
-    // 1. Check if window.__CODE_RAGINII_GET_CODE__ exists (if main world accessible)
     if (typeof window.__CODE_RAGINII_GET_CODE__ === 'function') {
       const c = window.__CODE_RAGINII_GET_CODE__();
       if (c && c.trim()) return c;
     }
 
-    // 2. Extract from Monaco view-lines container
     const viewLines = document.querySelector('.monaco-editor .view-lines');
     if (viewLines) {
       const lineElements = Array.from(viewLines.querySelectorAll('.view-line'));
@@ -170,7 +191,6 @@
       }
     }
 
-    // 3. Extract from textarea.inputarea
     const textarea = document.querySelector('.monaco-editor textarea');
     if (textarea && textarea.value && textarea.value.trim().length > 10) {
       return textarea.value;
@@ -180,34 +200,20 @@
   }
 
   // =========================================================================
-  // 2. Floating In-Page Toast Widget
+  // 2. Simple Committed Notification Pill (Only for unique commits)
   // =========================================================================
-  function getOrCreateToast() {
+  function showSimpleCommittedToast(options = {}) {
     let toast = document.getElementById('code-raginii-toast');
     if (!toast) {
       toast = document.createElement('div');
       toast.id = 'code-raginii-toast';
-      toast.className = 'hidden';
+      toast.className = 'code-raginii-toast-hidden';
       toast.innerHTML = `
-        <div class="code-raginii-toast-header">
-          <div class="code-raginii-toast-brand">
-            <img src="${chrome.runtime.getURL('icons/icon32.png')}" alt="Logo" class="code-raginii-toast-logo">
-            <span class="code-raginii-toast-title">Code_Raginii</span>
-          </div>
-          <button class="code-raginii-toast-close" id="code-raginii-toast-close">&times;</button>
-        </div>
-        <div class="code-raginii-toast-body">
-          <div class="code-raginii-status-row">
-            <span class="code-raginii-pulse-dot" id="code-raginii-dot"></span>
-            <span class="code-raginii-toast-msg" id="code-raginii-msg">Solution Accepted! Syncing...</span>
-          </div>
-          <div class="code-raginii-toast-meta" id="code-raginii-meta">
-            <span class="code-raginii-badge" id="code-raginii-diff">Easy</span>
-            <span id="code-raginii-perf">LeetCode &rarr; GitHub</span>
-          </div>
-        </div>
-        <div class="code-raginii-toast-footer" id="code-raginii-footer">
-          <a href="#" target="_blank" class="code-raginii-btn hidden" id="code-raginii-commit-btn">View Commit &rarr;</a>
+        <div class="code-raginii-toast-pill">
+          <span class="code-raginii-toast-check">✓</span>
+          <span class="code-raginii-toast-text" id="code-raginii-toast-text">Committed to GitHub</span>
+          <a href="#" target="_blank" class="code-raginii-toast-link" id="code-raginii-toast-link">View</a>
+          <button class="code-raginii-toast-close" id="code-raginii-toast-close" title="Close" aria-label="Close">&times;</button>
         </div>
       `;
       document.body.appendChild(toast);
@@ -215,59 +221,43 @@
       const closeBtn = document.getElementById('code-raginii-toast-close');
       if (closeBtn) {
         closeBtn.addEventListener('click', () => {
-          toast.classList.add('hidden');
+          toast.classList.add('code-raginii-toast-hidden');
         });
       }
     }
-    return toast;
-  }
 
-  function showToastNotification(options = {}) {
-    const toast = getOrCreateToast();
-    const dot = document.getElementById('code-raginii-dot');
-    const msg = document.getElementById('code-raginii-msg');
-    const diff = document.getElementById('code-raginii-diff');
-    const perf = document.getElementById('code-raginii-perf');
-    const commitBtn = document.getElementById('code-raginii-commit-btn');
+    const textEl = document.getElementById('code-raginii-toast-text');
+    const linkEl = document.getElementById('code-raginii-toast-link');
 
-    if (options.message && msg) msg.textContent = options.message;
-    if (options.difficulty && diff) diff.textContent = options.difficulty;
-    if (options.perf && perf) perf.textContent = options.perf;
-
-    if (dot) {
-      dot.className = 'code-raginii-pulse-dot';
-      if (options.status === 'success') dot.classList.add('success');
-      else if (options.status === 'error') dot.classList.add('error');
+    if (textEl) {
+      textEl.textContent = options.title ? `Committed: ${options.title}` : 'Committed to GitHub';
     }
 
-    if (commitBtn) {
+    if (linkEl) {
       if (options.commitUrl) {
-        commitBtn.href = options.commitUrl;
-        commitBtn.classList.remove('hidden');
+        linkEl.href = options.commitUrl;
+        linkEl.style.display = 'inline';
       } else {
-        commitBtn.classList.add('hidden');
+        linkEl.style.display = 'none';
       }
     }
 
-    toast.classList.remove('hidden');
+    toast.classList.remove('code-raginii-toast-hidden');
 
     if (toastTimeout) clearTimeout(toastTimeout);
-    if (!options.persist) {
-      toastTimeout = setTimeout(() => {
-        toast.classList.add('hidden');
-      }, options.duration || 6500);
-    }
+    toastTimeout = setTimeout(() => {
+      toast.classList.add('code-raginii-toast-hidden');
+    }, 3800);
   }
 
   // =========================================================================
-  // 3. Ingestion Handler
+  // 3. Ingestion Handler (Silent on duplicates, only pops on unique commit)
   // =========================================================================
   async function handleAcceptedSubmission(submissionData = {}) {
     if (isSyncing) return;
 
     const submissionId = submissionData.submissionId || Date.now();
     if (lastProcessedSubmissionId && lastProcessedSubmissionId === submissionId) {
-      console.log('[Code_Raginii] Duplicate submission event ignored:', submissionId);
       return;
     }
     lastProcessedSubmissionId = submissionId;
@@ -277,7 +267,6 @@
     const code = submissionData.code || extractCodeFromDOM();
 
     if (!code) {
-      console.warn('[Code_Raginii] Could not extract solution code from editor.');
       isSyncing = false;
       return;
     }
@@ -297,15 +286,7 @@
       submissionId: submissionId
     };
 
-    console.log('[Code_Raginii] Ingesting accepted solution for:', problemPayload.title);
-
-    showToastNotification({
-      status: 'pending',
-      message: `Accepted! Syncing ${meta.title} to GitHub...`,
-      difficulty: meta.difficulty,
-      perf: `${problemPayload.runtime || 'Accepted'} | GitHub`,
-      persist: true
-    });
+    console.log('[Code_Raginii] Checking submission for:', problemPayload.title);
 
     try {
       const response = await chrome.runtime.sendMessage({
@@ -315,57 +296,31 @@
 
       if (response && response.success) {
         if (response.duplicate) {
-          console.log(`[Code_Raginii] "${meta.title}" is already up to date on GitHub.`);
-          showToastNotification({
-            status: 'info',
-            message: `"${meta.title}" is already up to date on GitHub!`,
-            difficulty: meta.difficulty,
-            commitUrl: response.commitUrl,
-            duration: 6000
-          });
+          // DUPLICATE: Completely silent, no irritating popup!
+          console.log(`[Code_Raginii] "${meta.title}" is already up to date on GitHub. Duplicate skipped silently.`);
         } else {
-          const shortSha = response.commitSha ? response.commitSha.slice(0, 7) : 'done';
-          console.log(`[Code_Raginii] Synced successfully! Commit: ${shortSha}`);
-
-          showToastNotification({
-            status: 'success',
-            message: `Uploaded ${meta.title} (${shortSha})!`,
-            difficulty: meta.difficulty,
-            perf: problemPayload.runtime ? `Runtime: ${problemPayload.runtime}` : 'Accepted',
-            commitUrl: response.commitUrl,
-            duration: 7000
+          // UNIQUE NEW SUBMISSION COMMITTED: Show simple, sleek notification
+          const shortSha = response.commitSha ? response.commitSha.slice(0, 7) : '';
+          console.log(`[Code_Raginii] Synced unique submission! Commit: ${shortSha}`);
+          showSimpleCommittedToast({
+            title: meta.title,
+            commitUrl: response.commitUrl
           });
         }
-      } else if (response && response.autoSyncDisabled) {
-        showToastNotification({
-          status: 'info',
-          message: `${meta.title} accepted! (Auto-sync is disabled in settings)`,
-          difficulty: meta.difficulty,
-          duration: 5000
-        });
       } else {
-        showToastNotification({
-          status: 'error',
-          message: `Sync failed: ${response?.error || 'Unknown error'}`,
-          difficulty: meta.difficulty,
-          duration: 6000
-        });
+        console.warn('[Code_Raginii] Sync response:', response?.error || 'No commit made');
       }
     } catch (err) {
       console.error('[Code_Raginii] Sync error:', err);
-      showToastNotification({
-        status: 'error',
-        message: `Sync error: ${err.message}`,
-        duration: 5000
-      });
     } finally {
       isSyncing = false;
     }
   }
 
   // =========================================================================
-  // 4. Event Listeners (Network & DOM)
+  // 4. Submission Event Listeners
   // =========================================================================
+  // Primary trigger: Network interception from main-world.js on actual submit
   window.addEventListener('CODE_RAGINII_SUBMISSION_EVENT', (event) => {
     const detail = event.detail;
     if (detail && detail.statusDisplay === 'Accepted') {
@@ -374,32 +329,15 @@
     }
   });
 
-  // Check on load if an Accepted result is already on screen
-  function checkExistingAcceptedInDOM() {
-    const bodyText = document.body ? document.body.innerText : '';
-    if (bodyText.includes('Accepted') && bodyText.includes('testcases passed')) {
-      const meta = extractProblemMetadata();
-      const code = extractCodeFromDOM();
-      if (code) {
-        console.log('[Code_Raginii] Detected existing Accepted submission on page load.');
-        handleAcceptedSubmission({
-          statusDisplay: 'Accepted',
-          source: 'PAGE_LOAD_DOM'
-        });
-      }
-    }
-  }
-
-  setTimeout(checkExistingAcceptedInDOM, 1500);
-
-  // MutationObserver for visual "Accepted" changes
+  // Secondary fallback: MutationObserver only when user recently clicked submit
   let observerDebounce = null;
   const domObserver = new MutationObserver(() => {
-    if (isSyncing) return;
+    if (isSyncing || !recentSubmitClicked) return;
     if (observerDebounce) clearTimeout(observerDebounce);
     observerDebounce = setTimeout(() => {
       const bodyText = document.body ? document.body.innerText : '';
       if (bodyText.includes('Accepted') && bodyText.includes('testcases passed')) {
+        recentSubmitClicked = false;
         handleAcceptedSubmission({
           statusDisplay: 'Accepted',
           source: 'DOM_OBSERVER'
