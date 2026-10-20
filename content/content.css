@@ -1,38 +1,38 @@
 /* ==========================================================================
-   RAG_LeetSync - In-Page Content Script Styles
+   Code_Raginii - In-Page Content Script Styles
    Displays floating sync notifications and status on leetcode.com
    ========================================================================== */
 
-#rag-leetsync-toast {
+#code-raginii-toast {
   position: fixed;
   bottom: 24px;
   right: 24px;
   z-index: 999999;
-  min-width: 320px;
-  max-width: 420px;
-  background: rgba(9, 13, 22, 0.94);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.7), 0 0 20px rgba(56, 189, 248, 0.15);
+  min-width: 300px;
+  max-width: 380px;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 15px rgba(99, 102, 241, 0.2);
   border-radius: 12px;
-  padding: 14px 16px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  padding: 12px 14px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: #f8fafc;
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.4;
   user-select: none;
-  animation: ragToastSlideIn 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: codeRaginiiSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-#rag-leetsync-toast.hidden {
+#code-raginii-toast.hidden {
   opacity: 0;
   pointer-events: none;
   transform: translateY(12px);
 }
 
-@keyframes ragToastSlideIn {
+@keyframes codeRaginiiSlideIn {
   from {
     opacity: 0;
     transform: translateY(20px) scale(0.96);
@@ -43,144 +43,123 @@
   }
 }
 
-.rag-toast-header {
+.code-raginii-toast-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
-.rag-toast-brand {
+.code-raginii-toast-brand {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.rag-toast-logo {
-  width: 18px;
-  height: 18px;
+.code-raginii-toast-logo {
+  width: 20px;
+  height: 20px;
   border-radius: 4px;
+  object-fit: cover;
 }
 
-.rag-toast-title {
+.code-raginii-toast-title {
   font-weight: 700;
   font-size: 13px;
-  background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #a5b4fc;
   letter-spacing: -0.01em;
 }
 
-.rag-toast-close {
+.code-raginii-toast-close {
   background: transparent;
   border: none;
   color: #94a3b8;
-  font-size: 18px;
+  font-size: 16px;
   cursor: pointer;
   line-height: 1;
   padding: 0 4px;
 }
 
-.rag-toast-close:hover {
+.code-raginii-toast-close:hover {
   color: #f8fafc;
 }
 
-.rag-toast-body {
+.code-raginii-toast-body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
-.rag-toast-status-row {
+.code-raginii-status-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.rag-pulse-dot {
+.code-raginii-pulse-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: #38bdf8;
+  background: #38bdf8;
   box-shadow: 0 0 8px #38bdf8;
-  animation: ragPulse 1.8s infinite ease-in-out;
+  flex-shrink: 0;
 }
 
-.rag-pulse-dot.success {
-  background-color: #10b981;
-  box-shadow: 0 0 8px #10b981;
+.code-raginii-pulse-dot.success {
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
 }
 
-.rag-pulse-dot.error {
-  background-color: #f43f5e;
-  box-shadow: 0 0 8px #f43f5e;
+.code-raginii-pulse-dot.error {
+  background: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
 }
 
-@keyframes ragPulse {
-  0% { transform: scale(0.9); opacity: 0.8; }
-  50% { transform: scale(1.3); opacity: 1; }
-  100% { transform: scale(0.9); opacity: 0.8; }
+.code-raginii-toast-msg {
+  font-weight: 500;
+  color: #f1f5f9;
+  font-size: 13px;
 }
 
-.rag-toast-message {
-  font-size: 12.5px;
-  color: #e2e8f0;
-}
-
-.rag-toast-meta {
+.code-raginii-toast-meta {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 11px;
   color: #94a3b8;
-  font-family: 'JetBrains Mono', Consolas, monospace;
+  margin-top: 2px;
 }
 
-.rag-toast-badge {
-  padding: 2px 6px;
+.code-raginii-badge {
+  background: rgba(99, 102, 241, 0.2);
+  color: #c7d2fe;
+  padding: 1px 6px;
   border-radius: 4px;
   font-size: 10px;
   font-weight: 600;
-  background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
-  border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
-.rag-toast-footer {
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+.code-raginii-toast-footer {
+  margin-top: 8px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
 }
 
-.rag-toast-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border-radius: 6px;
+.code-raginii-btn {
+  background: #6366f1;
+  color: #ffffff;
+  text-decoration: none;
   font-size: 11px;
   font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  border: none;
-  transition: all 0.15s ease;
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: background 0.15s ease;
 }
 
-.rag-toast-btn-primary {
-  background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
-  color: #090d16;
+.code-raginii-btn:hover {
+  background: #4f46e5;
 }
 
-.rag-toast-btn-primary:hover {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
-}
-
-.rag-toast-repo-text {
-  font-size: 10.5px;
-  color: #64748b;
-  font-family: 'JetBrains Mono', Consolas, monospace;
+.code-raginii-btn.hidden {
+  display: none;
 }

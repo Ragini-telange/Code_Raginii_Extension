@@ -1,5 +1,5 @@
 /**
- * RAG_LeetSync - Main World In-Page Script (Phase 4)
+ * Code_Raginii - Main World In-Page Script
  * Runs directly in the LeetCode web page context to access window.monaco
  * and intercept submission verification network responses.
  */
@@ -7,10 +7,10 @@
 (function () {
   'use strict';
 
-  if (window.__RAG_LEETSYNC_MAIN_WORLD_INJECTED__) return;
-  window.__RAG_LEETSYNC_MAIN_WORLD_INJECTED__ = true;
+  if (window.__CODE_RAGINII_MAIN_WORLD_INJECTED__) return;
+  window.__CODE_RAGINII_MAIN_WORLD_INJECTED__ = true;
 
-  console.log('[RAG_LeetSync] Main-world interceptor initialized.');
+  console.log('[Code_Raginii] Main-world interceptor initialized.');
 
   /**
    * Safely retrieves source code from Monaco Editor instance
@@ -31,7 +31,7 @@
         }
       }
     } catch (e) {
-      console.warn('[RAG_LeetSync] Error reading Monaco model:', e);
+      console.warn('[Code_Raginii] Error reading Monaco model:', e);
     }
     return null;
   }
@@ -39,10 +39,10 @@
   /**
    * Listen for explicit code extraction requests from content script
    */
-  window.addEventListener('RAG_LEETSYNC_REQUEST_CODE', () => {
+  window.addEventListener('CODE_RAGINII_REQUEST_CODE', () => {
     const code = getMonacoCode();
     window.dispatchEvent(
-      new CustomEvent('RAG_LEETSYNC_CODE_RESPONSE', {
+      new CustomEvent('CODE_RAGINII_CODE_RESPONSE', {
         detail: { code }
       })
     );
@@ -59,9 +59,7 @@
       const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || '');
 
       // Check if this is a LeetCode submission status check URL
-      // Examples:
-      // https://leetcode.com/submissions/detail/<id>/check/
-      // https://leetcode.com/problems/<slug>/submit/
+      // Example: https://leetcode.com/submissions/detail/<id>/check/
       if (url.includes('/submissions/detail/') && url.includes('/check/')) {
         const clone = response.clone();
         clone.json().then((data) => {
@@ -69,10 +67,10 @@
             const isAccepted = data.status_display === 'Accepted' || data.total_correct === data.total_testcases;
             if (isAccepted) {
               const code = getMonacoCode();
-              console.log('[RAG_LeetSync] Intercepted Accepted submission via network check:', data);
+              console.log('[Code_Raginii] Intercepted Accepted submission via network check:', data);
 
               window.dispatchEvent(
-                new CustomEvent('RAG_LEETSYNC_SUBMISSION_EVENT', {
+                new CustomEvent('CODE_RAGINII_SUBMISSION_EVENT', {
                   detail: {
                     type: 'NETWORK_ACCEPTED',
                     submissionId: data.submission_id,
@@ -105,19 +103,19 @@
   const originalXHRSend = XMLHttpRequest.prototype.send;
 
   XMLHttpRequest.prototype.open = function (method, url, ...rest) {
-    this._ragUrl = url;
+    this._crUrl = url;
     return originalXHROpen.apply(this, [method, url, ...rest]);
   };
 
   XMLHttpRequest.prototype.send = function (...args) {
     this.addEventListener('load', function () {
       try {
-        if (this._ragUrl && typeof this._ragUrl === 'string' && this._ragUrl.includes('/check/')) {
+        if (this._crUrl && typeof this._crUrl === 'string' && this._crUrl.includes('/check/')) {
           const data = JSON.parse(this.responseText);
           if (data && (data.state === 'SUCCESS' || data.status_display === 'Accepted')) {
             const code = getMonacoCode();
             window.dispatchEvent(
-              new CustomEvent('RAG_LEETSYNC_SUBMISSION_EVENT', {
+              new CustomEvent('CODE_RAGINII_SUBMISSION_EVENT', {
                 detail: {
                   type: 'XHR_ACCEPTED',
                   submissionId: data.submission_id,

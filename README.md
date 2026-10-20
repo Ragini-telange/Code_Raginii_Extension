@@ -1,185 +1,99 @@
-# RAG_LeetSync 🚀
+# Code_Raginii 🚀
 
-> **Sync your LeetCode problem solutions directly to GitHub with structured metadata, problem tags, and rich documentation optimized for Retrieval-Augmented Generation (RAG) and technical interview review.**
+> **Automatically sync your accepted LeetCode solutions directly to your GitHub repository.**
+> **LeetCode &rarr; GitHub**
 
 ---
 
 ## 📖 Overview
 
-**RAG_LeetSync** is a Google Chrome Extension built on **Chrome Extension Manifest V3**. It bridges your LeetCode problem-solving practice with version control in your GitHub repository (`rag_leetsync`), automatically organizing code, problem prompts, complexity metrics, and tags.
+**Code_Raginii** is a lightweight, reliable Google Chrome extension built on **Chrome Extension Manifest V3**. It detects when you successfully solve and submit a problem on LeetCode with an **Accepted** verdict, and automatically commits your source code and documentation to your selected GitHub repository (**`Code_Raginii_Extension`**).
 
-### 6-Phase Development Roadmap
+### Key Features
 
-- [x] **Phase 1: Project Scaffolding & Manifest V3 Foundation**
-  - Manifest V3 architecture with background service worker
-  - High-aesthetic popup dashboard and diagnostic utilities
-  - Local storage initialization and clean modular file layout
-- [x] **Phase 2: Secure GitHub Authentication & Repository Selection**
-  - Personal Access Token (PAT) with direct one-click GitHub generator
-  - Dynamic user repository fetch, picker, and one-click remote repo creation
-  - End-to-end integration test commit verification via GitHub Contents REST API
-  - Secure credential isolation in `chrome.storage.local` with masked display
-- [x] **Phase 3: Manual Solution Upload & File Templating** *(Completed)*
-  - Multi-file atomic GitHub commit engine via Git Data API (trees & commits) with sequential fallback
-  - RAG metadata schema generator: formatted `solution.<ext>`, rich `README.md` with badges & intuition, and machine-readable `metadata.json`
-  - In-popup manual ingestion form with active tab auto-detection & sample solution loader
-  - Live RAG bundle preview drawer & recent ingestions dashboard tracker
-- [x] **Phase 4: Automated LeetCode Submission Ingestion** *(Completed)*
-  - Main-world network interceptor (`content/main-world.js`) hooking into fetch/XHR submission checks
-  - Direct Monaco editor model extraction (`window.monaco.editor.getModels()`) with DOM line scraping fallback
-  - Automatic detection of "Accepted" state, runtime percentiles, and memory percentiles
-  - Floating in-page sync notification widget (`content/content.css`) on `leetcode.com` with direct commit links
-  - Native Chrome desktop notification integration upon successful push
-- [x] **Phase 5: Sync History, Duplicate Prevention & Resilience** *(Completed)*
-  - Cryptographic duplicate prevention engine (`syncedRegistry`) computing normalized code hashes (`computeCodeHash`) to prevent redundant commits
-  - Offline retry queue (`syncQueue`) with automatic failure recovery, badge alerts, and manual flush
-  - Real-time sync history dashboard with instant search filter by title, slug, or tags
-  - Difficulty filter pill tabs (`All`, `Easy`, `Medium`, `Hard`)
-  - One-click JSON data export (`rag_leetsync_history.json`) for data analysis and vector database onboarding
-  - Duplicate prevention toggle in Settings and safe cache reset utilities
-- [x] **Phase 6: Release Packaging & Web Store Preparation** *(Completed)*
-  - Standalone release validation & packaging suite (`scripts/package.js`)
-  - Clean distribution ZIP bundle (`dist/rag_leetsync_v1.5.0.zip`) with SHA-256 integrity verification
-  - Chrome Web Store Developer review documentation & permission disclosures ([`STORE_LISTING.md`](./STORE_LISTING.md))
-  - Complete RAG vector database ingestion & AI tutor integration guide ([`RAG_GUIDE.md`](./RAG_GUIDE.md))
+- **⚡ Automatic Detection**: Detects accepted submissions on LeetCode in real-time.
+- **🔒 Duplicate Prevention**: Employs deterministic submission ID and code hashing so reopening or refreshing problems never creates duplicate commits.
+- **📁 Organized Hierarchy**:
+  ```text
+  Code_Raginii_Extension/
+  ├── README.md                          # Auto-maintained table of all unique solved problems
+  └── leetcode-solutions/
+      ├── Easy/
+      │   └── 0001-two-sum/
+      │       ├── solution.py
+      │       └── README.md
+      ├── Medium/
+      └── Hard/
+  ```
+- **📊 Maintained Progress Table**: Automatically updates the repository's root `README.md` with total unique problem counts and direct links to each solution file.
+- **🛡️ Secure Token Isolation**: GitHub Personal Access Tokens (PAT) remain strictly local inside `chrome.storage.local` and are never committed or leaked.
 
 ---
 
 ## 🛠️ Technology Stack
 
-- **Core**: Vanilla HTML5, CSS3, JavaScript (ES6+ Modules)
-- **Extension Spec**: Chrome Extension Manifest V3
+- **Extension Framework**: Chrome Extension Manifest V3
+- **Languages**: HTML5, CSS3, JavaScript (ES6 Modules)
 - **Storage**: Chrome Storage API (`chrome.storage.local`)
-- **APIs**: GitHub REST API v3, LeetCode DOM / Network observation
-- **Packaging**: Zero-dependency Node.js validation & packaging suite
+- **APIs**: GitHub REST API v3
+- **Platforms**: LeetCode (`https://leetcode.com/problems/*`)
 
 ---
 
-## 📁 Project Structure
+## 🚀 How to Load and Test Locally in Google Chrome
 
-```text
-rag_leetsync/
-├── manifest.json              # Chrome Manifest V3 configuration (v1.5.0)
-├── background/
-│   ├── background.js          # Service worker handling lifecycle, sync & queue
-│   ├── github-api.js          # Modular GitHub REST API client (Auth, Repos, Commits)
-│   └── rag-templates.js       # RAG metadata, schema generator & code hashing
-├── content/
-│   ├── main-world.js          # In-page Monaco & network submission interceptor
-│   ├── leetcode.js            # Content script observer & sync coordinator
-│   └── content.css            # Floating in-page sync toast styling
-├── popup/
-│   ├── popup.html             # Multi-tab dashboard, sync form, auth & settings UI
-│   ├── popup.css              # Obsidian & Cyber Teal theme with animations
-│   └── popup.js               # Reactive popup controller & sync manager
-├── icons/                     # Extension icons (16px, 32px, 48px, 128px)
-│   ├── icon16.png
-│   ├── icon32.png
-│   ├── icon48.png
-│   └── icon128.png
-├── scripts/
-│   └── package.js             # Release packaging & validation suite (Zero dependencies)
-├── dist/                      # Packaged release archives & checksums
-│   ├── rag_leetsync_v1.5.0.zip
-│   └── rag_leetsync_v1.5.0.sha256
-├── STORE_LISTING.md           # Chrome Web Store submission & compliance guide
-├── RAG_GUIDE.md               # Vector DB & AI tutor ingestion guide (LangChain/Chroma)
-├── .gitignore                 # Security ignore rules (protects tokens & env)
-└── README.md                  # Complete project documentation & roadmap
-```
+1. **Open Chrome Extensions**:
+   - In Google Chrome, go to `chrome://extensions/`
+   - Turn ON **Developer mode** using the toggle switch in the top-right corner.
+2. **Load the Extension**:
+   - Click **Load unpacked** in the top-left corner.
+   - Select the project folder: `c:\Users\Ragini Telange\Downloads\rag_leetsync`
+3. **Verify the Extension**:
+   - Confirm **Code_Raginii** appears with version `1.0.0` and the custom icon.
+   - Click the extension icon in the Chrome toolbar to open the popup.
 
 ---
 
-## 🚀 How to Load and Test the Extension in Chrome
+## 🔑 GitHub Setup & Connection
 
-Follow these steps to load `RAG_LeetSync` locally in Google Chrome:
-
-1. **Open Chrome Extensions Manager**:
-   - In Google Chrome, navigate to `chrome://extensions/`
-   - Alternatively, open the **three-dots menu** $\rightarrow$ **Extensions** $\rightarrow$ **Manage Extensions**.
-
-2. **Enable Developer Mode**:
-   - In the top-right corner of the Extensions page, toggle the **Developer mode** switch to **ON**.
-
-3. **Load Unpacked Extension**:
-   - Click the **Load unpacked** button in the top-left toolbar.
-   - Select the project folder:
-     ```text
-     c:\Users\Ragini Telange\Downloads\rag_leetsync
-     ```
-
-4. **Verify Extension Loading**:
-   - The card **RAG_LeetSync** with version `1.1.0` will appear.
-   - Confirm that there are **no errors** or red warning banners on the card.
-   - Ensure the service worker status indicates `Service worker (Active)`.
-
-5. **Test Phase 2 GitHub Authentication & Sync**:
-   - Click the extension icon to open the popup.
-   - Switch to the **GitHub Auth** tab:
-     - Click **Create Token** to open GitHub's token generator (pre-configured with `repo` scope).
-     - Paste your Personal Access Token (PAT) and click **Verify & Connect GitHub**.
-     - Once connected, your avatar, username, and repository list will populate automatically.
-     - Choose an existing repository or click **Create New Repo** to initialize `rag_leetsync` on GitHub.
-   - Return to the **Dashboard** tab:
-     - Click **Test GitHub Commit** to run a live end-to-end commit test (`RAG_SYNC_TEST.md`) verified via the GitHub API.
-
-6. **Test Phase 3 Solution Ingestion & RAG Generation**:
-   - Switch to the **Sync Solution** tab:
-     - Click **Load Sample Code** to pre-fill the form with a complete Two Sum solution, or click **Detect from Tab** while on a LeetCode problem page.
-     - Click **Preview RAG** to inspect the live generated directory path (`problems/easy/two-sum/`), `README.md` documentation, and `metadata.json` schema.
-     - Click **Sync to GitHub** to trigger an atomic multi-file commit via the GitHub Git Data API.
-     - Switch back to the **Dashboard** to see your problem logged in the **Recent Ingestions** list with a direct clickable link to the GitHub commit!
-   - Switch to **Settings** to customize problem directory patterns and commit message templates.
-
-7. **Test Phase 4 Automated LeetCode Submission Ingestion**:
-   - Open any problem on [LeetCode](https://leetcode.com/problems/two-sum/) in Google Chrome.
-   - Click **Submit** on an accepted solution.
-   - The in-page **RAG_LeetSync Notification Toast** will pop up in the lower-right corner:
-     - Real-time status: *"Accepted! Syncing to GitHub..."*
-     - Automatic extraction of Monaco editor code, execution runtime, memory percentiles, and problem tags.
-     - Confirmation with direct commit link: *"Synced [title] (commit SHA)!"*
-   - A native desktop notification will also confirm the push.
-
-8. **Test Phase 5 Duplicate Prevention, Retry Queue & History Search**:
-   - **Duplicate Detection**: Submit the exact same accepted solution a second time. The in-page toast and popup will notify: *"Already up to date on GitHub! (Skipped duplicate commit)"*, saving API calls and keeping commit history clean.
-   - **Search & Difficulty Filters**: On the **Dashboard**, type in the search bar (e.g. `Two Sum` or `array`) to filter recent ingestions instantaneously. Click the `Easy`, `Medium`, or `Hard` filter pill badges.
-   - **Offline Resilience Queue**: If your connection drops or GitHub encounters a rate-limit during submission, solutions are safely enqueued in `syncQueue`. The extension badge will display the pending count (`⚠️ 1 Pending`), with a one-click **Retry Now** button.
-   - **Export History**: Click **Export JSON** to instantly download `rag_leetsync_history.json` containing complete metadata for all synced problems ready for vector DB ingestion.
-
-9. **Phase 6: Release Packaging & Web Store Preparation**:
-   - Run the automated validation & packaging script:
-     ```bash
-     node scripts/package.js
-     ```
-   - The script performs:
-     - Manifest V3 schema & version validation
-     - File existence verification for all background scripts, content scripts, popups, and icons
-     - JavaScript syntax check (`node -c`)
-     - Clean packaging into `dist/rag_leetsync_v1.5.0.zip`
-     - SHA-256 integrity hash generation (`dist/rag_leetsync_v1.5.0.sha256`)
-   - Consult [`STORE_LISTING.md`](./STORE_LISTING.md) for Chrome Web Store developer dashboard copy, permission disclosures, and privacy policies.
-   - Consult [`RAG_GUIDE.md`](./RAG_GUIDE.md) for end-to-end Python, LangChain, and ChromaDB vector database embedding and AI mock interview tutor recipes.
+1. Click **Connect GitHub** in the extension popup.
+2. Generate a Personal Access Token on GitHub:
+   - Go to [GitHub Token Settings](https://github.com/settings/tokens/new?scopes=repo&description=Code_Raginii_Extension).
+   - Select the `repo` scope (full control of private repositories).
+   - Generate and copy your token (`ghp_...`).
+3. Paste the token into the popup and click **Connect GitHub**.
+4. Set the target repository to **`Code_Raginii_Extension`** (you can click **Create on GitHub** if the repository does not exist yet).
 
 ---
 
-## 🔒 Security & Best Practices
+## 🔗 Connecting to your new GitHub Repository: `Code_Raginii_Extension`
 
-- **Zero Secret Commits**: Authentication credentials or tokens are never committed to Git.
-- **Chrome Storage API**: Tokens are stored strictly within the user's isolated local Chrome extension storage (`chrome.storage.local`).
-- **Least-Privilege Scopes**: Permissions are restricted strictly to `storage`, `notifications`, `activeTab`, `tabs`, and required domain hosts (`api.github.com`, `leetcode.com`).
-
----
-
-## 📝 Git Initialization & First Commit
-
-To initialize Git in this directory and push Phase 1 to your remote repository, run:
+To update your local Git remote to your new GitHub repository:
 
 ```bash
-git init
+# 1. Check current remotes
+git remote -v
+
+# 2. Update origin remote to your new repository URL:
+git remote set-url origin https://github.com/Ragini-telange/Code_Raginii_Extension.git
+
+# 3. Verify the new remote URL:
+git remote -v
+
+# 4. Stage and commit all refactored files:
 git add .
-git commit -m "feat(phase-1): initialize RAG_LeetSync Chrome extension foundation"
-git branch -M main
-git remote add origin https://github.com/USERNAME/rag_leetsync.git
+git commit -m "refactor: transform into Code_Raginii Chrome extension"
+
+# 5. Push to your new repository:
 git push -u origin main
 ```
-*(Replace `USERNAME` with your actual GitHub username).*
+
+---
+
+## 🧪 Testing Checklist
+
+- [x] Extension loads cleanly in `chrome://extensions` with custom icon and Manifest V3.
+- [x] All JavaScript files pass syntax checks (`node -c`).
+- [x] Popup displays GitHub connection status, auto-sync toggle, latest result, and settings.
+- [x] Duplicate prevention logic prevents repeated commits for identical submissions.
+- [x] Multi-file atomic commits update both the solution file and root repository `README.md`.

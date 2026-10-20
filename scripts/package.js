@@ -1,5 +1,5 @@
 /**
- * RAG_LeetSync - Release Packaging & Validation Script (Phase 6)
+ * Code_Raginii - Release Packaging & Validation Script
  * Zero external dependencies. Uses Node.js built-ins and PowerShell / tar.exe.
  */
 
@@ -13,7 +13,7 @@ const DIST_DIR = path.join(ROOT_DIR, 'dist');
 const MANIFEST_PATH = path.join(ROOT_DIR, 'manifest.json');
 
 console.log('====================================================');
-console.log('🚀 RAG_LeetSync Release Packaging & Validation Suite');
+console.log('🚀 Code_Raginii Release Packaging & Validation Suite');
 console.log('====================================================\n');
 
 // 1. Validate manifest.json
@@ -111,7 +111,7 @@ if (!fs.existsSync(DIST_DIR)) {
 }
 
 const version = manifest.version || '1.0.0';
-const zipFileName = `rag_leetsync_v${version}.zip`;
+const zipFileName = `code_raginii_v${version}.zip`;
 const zipFilePath = path.join(DIST_DIR, zipFileName);
 
 // Remove prior zip if exists
@@ -182,7 +182,7 @@ if (fs.existsSync(zipFilePath)) {
   const hash = crypto.createHash('sha256').update(zipBuffer).digest('hex');
   const sizeKb = (zipBuffer.length / 1024).toFixed(2);
 
-  const checksumFile = path.join(DIST_DIR, `rag_leetsync_v${version}.sha256`);
+  const checksumFile = path.join(DIST_DIR, `code_raginii_v${version}.sha256`);
   fs.writeFileSync(checksumFile, `${hash}  ${zipFileName}\n`, 'utf8');
 
   console.log('\n🎉 Step 5: Packaging Complete!');

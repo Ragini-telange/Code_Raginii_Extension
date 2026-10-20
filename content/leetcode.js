@@ -1,5 +1,5 @@
 /**
- * RAG_LeetSync - Content Script for LeetCode (Phase 4)
+ * Code_Raginii - Content Script for LeetCode
  * Injected on https://leetcode.com/problems/* to observe submissions,
  * extract accepted code, and coordinate automatic synchronization to GitHub.
  */
@@ -7,7 +7,7 @@
 (function () {
   'use strict';
 
-  console.log('[RAG_LeetSync] LeetCode content script active on:', window.location.pathname);
+  console.log('[Code_Raginii] Content script active on:', window.location.pathname);
 
   let lastProcessedSubmissionId = null;
   let isSyncing = false;
@@ -24,9 +24,9 @@
         this.remove();
       };
       (document.head || document.documentElement).appendChild(script);
-      console.log('[RAG_LeetSync] Injected main-world interceptor.');
+      console.log('[Code_Raginii] Injected main-world interceptor.');
     } catch (e) {
-      console.warn('[RAG_LeetSync] Failed to inject main-world script:', e);
+      console.warn('[Code_Raginii] Failed to inject main-world script:', e);
     }
   }
 
@@ -71,7 +71,7 @@
       }
     }
 
-    // If ID still null, check document title (e.g. "1. Two Sum - LeetCode")
+    // Check document title fallback (e.g. "1. Two Sum - LeetCode")
     if (!id && document.title) {
       const docMatch = document.title.match(/^(\d+)\.\s*(.+?)(?:\s*-\s*LeetCode)?$/);
       if (docMatch) {
@@ -101,15 +101,7 @@
       }
     }
 
-    // Topic tags extraction
-    const tags = [];
-    const tagElements = document.querySelectorAll('a[href*="/tag/"]');
-    tagElements.forEach((el) => {
-      const t = el.textContent.trim();
-      if (t && !tags.includes(t)) tags.push(t);
-    });
-
-    // Language extraction from dropdown or editor
+    // Language extraction from dropdown or editor button
     let language = 'python3';
     const langBtn = document.querySelector('button[id*="headlessui-listbox-button"], button[class*="rounded"]');
     if (langBtn && langBtn.textContent) {
@@ -122,6 +114,8 @@
       else if (langText.includes('go')) language = 'golang';
       else if (langText.includes('rust')) language = 'rust';
       else if (langText.includes('c#')) language = 'csharp';
+      else if (langText.includes('sql')) language = 'sql';
+      else if (langText === 'c') language = 'c';
     }
 
     return {
@@ -129,7 +123,6 @@
       title,
       titleSlug: slug,
       difficulty,
-      tags,
       language,
       url: window.location.href
     };
@@ -153,37 +146,36 @@
   // 3. Floating In-Page Toast Widget
   // =========================================================================
   function getOrCreateToast() {
-    let toast = document.getElementById('rag-leetsync-toast');
+    let toast = document.getElementById('code-raginii-toast');
     if (!toast) {
       toast = document.createElement('div');
-      toast.id = 'rag-leetsync-toast';
+      toast.id = 'code-raginii-toast';
       toast.className = 'hidden';
       toast.innerHTML = `
-        <div class="rag-toast-header">
-          <div class="rag-toast-brand">
-            <img src="${chrome.runtime.getURL('icons/icon32.png')}" alt="Logo" class="rag-toast-logo">
-            <span class="rag-toast-title">RAG_LeetSync</span>
+        <div class="code-raginii-toast-header">
+          <div class="code-raginii-toast-brand">
+            <img src="${chrome.runtime.getURL('icons/icon32.png')}" alt="Logo" class="code-raginii-toast-logo">
+            <span class="code-raginii-toast-title">Code_Raginii</span>
           </div>
-          <button class="rag-toast-close" id="rag-toast-close-btn">&times;</button>
+          <button class="code-raginii-toast-close" id="code-raginii-toast-close">&times;</button>
         </div>
-        <div class="rag-toast-body">
-          <div class="rag-toast-status-row">
-            <span class="rag-pulse-dot" id="rag-toast-dot"></span>
-            <span class="rag-toast-message" id="rag-toast-msg">Solution Accepted! Syncing...</span>
+        <div class="code-raginii-toast-body">
+          <div class="code-raginii-status-row">
+            <span class="code-raginii-pulse-dot" id="code-raginii-dot"></span>
+            <span class="code-raginii-toast-msg" id="code-raginii-msg">Solution Accepted! Syncing...</span>
           </div>
-          <div class="rag-toast-meta" id="rag-toast-meta">
-            <span class="rag-toast-badge" id="rag-toast-diff">Easy</span>
-            <span id="rag-toast-perf">Runtime: -- | Memory: --</span>
+          <div class="code-raginii-toast-meta" id="code-raginii-meta">
+            <span class="code-raginii-badge" id="code-raginii-diff">Easy</span>
+            <span id="code-raginii-perf">LeetCode &rarr; GitHub</span>
           </div>
         </div>
-        <div class="rag-toast-footer" id="rag-toast-footer">
-          <span class="rag-toast-repo-text" id="rag-toast-repo">Target: rag_leetsync</span>
-          <a href="#" target="_blank" class="rag-toast-btn rag-toast-btn-primary hidden" id="rag-toast-commit-btn">View Commit</a>
+        <div class="code-raginii-toast-footer" id="code-raginii-footer">
+          <a href="#" target="_blank" class="code-raginii-btn hidden" id="code-raginii-commit-btn">View Commit &rarr;</a>
         </div>
       `;
       document.body.appendChild(toast);
 
-      const closeBtn = document.getElementById('rag-toast-close-btn');
+      const closeBtn = document.getElementById('code-raginii-toast-close');
       if (closeBtn) {
         closeBtn.addEventListener('click', () => {
           toast.classList.add('hidden');
@@ -195,12 +187,11 @@
 
   function showToastNotification(options = {}) {
     const toast = getOrCreateToast();
-    const dot = document.getElementById('rag-toast-dot');
-    const msg = document.getElementById('rag-toast-msg');
-    const diff = document.getElementById('rag-toast-diff');
-    const perf = document.getElementById('rag-toast-perf');
-    const commitBtn = document.getElementById('rag-toast-commit-btn');
-    const repoText = document.getElementById('rag-toast-repo');
+    const dot = document.getElementById('code-raginii-dot');
+    const msg = document.getElementById('code-raginii-msg');
+    const diff = document.getElementById('code-raginii-diff');
+    const perf = document.getElementById('code-raginii-perf');
+    const commitBtn = document.getElementById('code-raginii-commit-btn');
 
     if (options.message && msg) msg.textContent = options.message;
     if (options.difficulty && diff) {
@@ -209,12 +200,9 @@
     if (options.perf && perf) {
       perf.textContent = options.perf;
     }
-    if (options.repo && repoText) {
-      repoText.textContent = options.repo;
-    }
 
     if (dot) {
-      dot.className = 'rag-pulse-dot';
+      dot.className = 'code-raginii-pulse-dot';
       if (options.status === 'success') dot.classList.add('success');
       else if (options.status === 'error') dot.classList.add('error');
     }
@@ -246,7 +234,7 @@
 
     const submissionId = submissionData.submissionId || Date.now();
     if (lastProcessedSubmissionId === submissionId) {
-      console.log('[RAG_LeetSync] Duplicate submission event ignored:', submissionId);
+      console.log('[Code_Raginii] Duplicate submission event ignored:', submissionId);
       return;
     }
     lastProcessedSubmissionId = submissionId;
@@ -256,7 +244,7 @@
     const code = submissionData.code || extractCodeFromDOM();
 
     if (!code) {
-      console.warn('[RAG_LeetSync] Could not extract solution code.');
+      console.warn('[Code_Raginii] Could not extract solution code.');
       isSyncing = false;
       return;
     }
@@ -267,7 +255,6 @@
       titleSlug: meta.titleSlug,
       difficulty: meta.difficulty,
       language: submissionData.language || meta.language,
-      tags: meta.tags,
       code: code,
       runtime: submissionData.runtime || null,
       runtimePercentile: submissionData.runtimePercentile || null,
@@ -277,14 +264,13 @@
       submissionId: submissionId
     };
 
-    console.log('[RAG_LeetSync] Preparing automated sync for:', problemPayload.title);
+    console.log('[Code_Raginii] Submitting accepted solution for:', problemPayload.title);
 
-    // Show initial in-page notification
     showToastNotification({
       status: 'pending',
       message: `Accepted! Syncing ${meta.title} to GitHub...`,
       difficulty: meta.difficulty,
-      perf: `${submissionData.runtime || 'Fast'} | ${submissionData.memory || 'Optimal'}`,
+      perf: `${submissionData.runtime || 'Accepted'} | GitHub`,
       persist: true
     });
 
@@ -296,40 +282,31 @@
 
       if (response && response.success) {
         if (response.duplicate) {
-          console.log(`[RAG_LeetSync] Duplicate solution detected for ${meta.title}. Skipped re-upload.`);
+          console.log(`[Code_Raginii] Duplicate solution detected for ${meta.title}. Skipped re-upload.`);
           showToastNotification({
             status: 'info',
-            message: `"${meta.title}" is already up to date on GitHub! (Identical code)`,
+            message: `"${meta.title}" is already up to date on GitHub!`,
             difficulty: meta.difficulty,
             commitUrl: response.commitUrl,
-            repo: response.dirPath,
-            duration: 6500
+            duration: 6000
           });
         } else {
           const shortSha = response.commitSha ? response.commitSha.slice(0, 7) : 'done';
-          console.log(`[RAG_LeetSync] Solution automatically synced! Commit: ${shortSha}`);
+          console.log(`[Code_Raginii] Solution synced! Commit: ${shortSha}`);
 
           showToastNotification({
             status: 'success',
-            message: `Synced ${meta.title} (${shortSha})!`,
+            message: `Uploaded to GitHub (${shortSha})!`,
             difficulty: meta.difficulty,
-            perf: `Beats ${submissionData.runtimePercentile ? `${submissionData.runtimePercentile}%` : 'top'} runtime`,
+            perf: submissionData.runtime ? `Runtime: ${submissionData.runtime}` : 'Accepted',
             commitUrl: response.commitUrl,
-            repo: response.dirPath,
-            duration: 8000
+            duration: 7000
           });
         }
-      } else if (response && response.enqueued) {
-        showToastNotification({
-          status: 'error',
-          message: `Network error. "${meta.title}" queued for offline retry.`,
-          difficulty: meta.difficulty,
-          duration: 7000
-        });
       } else if (response && response.autoSyncDisabled) {
         showToastNotification({
           status: 'info',
-          message: `${meta.title} accepted! (Auto-sync is turned off in settings)`,
+          message: `${meta.title} accepted! (Auto-sync is disabled in settings)`,
           difficulty: meta.difficulty,
           duration: 5000
         });
@@ -343,7 +320,7 @@
         });
       }
     } catch (err) {
-      console.error('[RAG_LeetSync] Content script sync error:', err);
+      console.error('[Code_Raginii] Content script sync error:', err);
       showToastNotification({
         status: 'error',
         message: `Sync error: ${err.message}`,
@@ -355,13 +332,12 @@
   }
 
   // =========================================================================
-  // 5. Event Listeners (Network & DOM)
+  // 5. Event Listeners
   // =========================================================================
-  // Network interception event from main-world.js
-  window.addEventListener('RAG_LEETSYNC_SUBMISSION_EVENT', (event) => {
+  window.addEventListener('CODE_RAGINII_SUBMISSION_EVENT', (event) => {
     const detail = event.detail;
     if (detail && detail.statusDisplay === 'Accepted') {
-      console.log('[RAG_LeetSync] Accepted event received from network interceptor:', detail);
+      console.log('[Code_Raginii] Accepted event received from network interceptor:', detail);
       handleAcceptedSubmission(detail);
     }
   });
@@ -375,7 +351,6 @@
       if (mutation.addedNodes.length > 0) {
         if (observerDebounce) clearTimeout(observerDebounce);
         observerDebounce = setTimeout(() => {
-          // Look for submission result container containing "Accepted"
           const resultElements = document.querySelectorAll(
             '[data-e2e-locator="submission-result"], div[class*="text-green"], span[class*="text-green"]'
           );
@@ -383,7 +358,7 @@
           for (const el of resultElements) {
             const text = el.textContent.trim();
             if (text.includes('Accepted') && !text.includes('Accepted Solutions')) {
-              console.log('[RAG_LeetSync] Detected Accepted state in DOM.');
+              console.log('[Code_Raginii] Detected Accepted state in DOM.');
               handleAcceptedSubmission({
                 statusDisplay: 'Accepted',
                 source: 'DOM_OBSERVER'

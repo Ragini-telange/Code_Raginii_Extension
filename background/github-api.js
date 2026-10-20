@@ -194,10 +194,10 @@ export async function verifyRepository(token, owner, repoName) {
 /**
  * Creates a new GitHub repository for the user if it does not exist
  */
-export async function createGitHubRepository(token, repoName, isPrivate = false, description = 'Synced LeetCode solutions with RAG metadata') {
+export async function createGitHubRepository(token, repoName, isPrivate = false, description = 'Synced LeetCode solutions via Code_Raginii') {
   try {
     const payload = {
-      name: repoName,
+      name: repoName || 'Code_Raginii_Extension',
       description,
       private: isPrivate,
       auto_init: true
@@ -294,25 +294,24 @@ export async function commitFileToGitHub(token, owner, repo, filePath, content, 
  * Performs a verified test commit to validate write permissions
  */
 export async function runTestCommit(token, owner, repo, branch = 'main') {
-  const testPath = 'RAG_SYNC_TEST.md';
+  const testPath = 'CODE_RAGINII_TEST.md';
   const timestamp = new Date().toISOString();
-  const testContent = `# 🚀 RAG_LeetSync Integration Verification
+  const testContent = `# 🚀 Code_Raginii Integration Verification
 
 > Verified on **${timestamp}**
 
-This file confirms that **RAG_LeetSync** has verified write and commit access to this repository.
+This file confirms that **Code_Raginii** has verified write and commit access to this repository.
 
 ### Synchronizer Status
 - **Repository**: \`${owner}/${repo}\`
 - **Target Branch**: \`${branch}\`
-- **Manifest**: Chrome Extension Manifest V3
-- **RAG Extraction**: Active
+- **Status**: Ready to sync accepted LeetCode submissions
 
 ---
-*Generated automatically by RAG_LeetSync.*
+*Generated automatically by Code_Raginii.*
 `;
 
-  const commitMsg = `chore: verify RAG_LeetSync repository access [${new Date().toLocaleDateString()}]`;
+  const commitMsg = `chore: verify Code_Raginii repository access [${new Date().toLocaleDateString()}]`;
   return await commitFileToGitHub(token, owner, repo, testPath, testContent, commitMsg, branch);
 }
 

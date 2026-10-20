@@ -1,916 +1,413 @@
 /**
- * RAG_LeetSync - Popup Interface Controller (Phase 5)
- * Handles tab navigation, GitHub authentication, repository management,
- * solution ingestion, RAG templating preview, sync history search/filtering,
- * duplicate prevention settings, and offline retry queue management.
+ * Code_Raginii - Simple & Reliable Popup Controller
+ * Manages GitHub authentication, repository selection, auto-sync setting,
+ * and latest synchronization status display.
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // DOM Elements - Navigation & Header
-  const navTabs = document.querySelectorAll('.nav-tab');
-  const tabPanes = document.querySelectorAll('.tab-pane');
-  const systemStatusText = document.getElementById('system-status-text');
-  const systemStatusDot = document.getElementById('system-status-dot');
-  const navAuthIndicator = document.getElementById('nav-auth-indicator');
-  const headerStatusDot = document.getElementById('header-status-dot');
-
-  // DOM Elements - Toast Banner
+  // DOM Elements - Header
+  const headerStatusPill = document.getElementById('header-status-pill');
+  const headerStatusLabel = document.getElementById('header-status-label');
   const toastBanner = document.getElementById('toast-banner');
-  const toastMessage = document.getElementById('toast-message');
-  const toastIcon = document.getElementById('toast-icon');
-  const toastClose = document.getElementById('toast-close');
+  const toastText = document.getElementById('toast-text');
 
-  // DOM Elements - Dashboard Tab
-  const githubAuthStatus = document.getElementById('github-auth-status');
-  const authCallout = document.getElementById('auth-callout');
-  const btnGotoAuth = document.getElementById('btn-goto-auth');
-  const repoConnectedView = document.getElementById('repo-connected-view');
-  const dashUserAvatar = document.getElementById('dash-user-avatar');
-  const dashUserName = document.getElementById('dash-user-name');
-  const dashUserHandle = document.getElementById('dash-user-handle');
-  const targetRepoName = document.getElementById('target-repo-name');
-  const targetBranchName = document.getElementById('target-branch-name');
-  const statSyncedCount = document.getElementById('stat-synced-count');
-  const statAutosyncState = document.getElementById('stat-autosync-state');
-  const statRepoState = document.getElementById('stat-repo-state');
-  const btnDashSyncNow = document.getElementById('btn-dash-sync-now');
-  const btnTestSync = document.getElementById('btn-test-sync');
-  const btnViewRepo = document.getElementById('btn-view-repo');
+  // DOM Elements - Auth Section
+  const authDisconnectedView = document.getElementById('auth-disconnected-view');
+  const authConnectedView = document.getElementById('auth-connected-view');
+  const inputPat = document.getElementById('input-pat');
+  const btnTogglePat = document.getElementById('btn-toggle-pat');
+  const btnConnectGithub = document.getElementById('btn-connect-github');
+  const btnConnectText = document.getElementById('btn-connect-text');
+  const connectSpinner = document.getElementById('connect-spinner');
 
-  // DOM Elements - Phase 5 History & Queue Controls
-  const queueAlertBanner = document.getElementById('queue-alert-banner');
-  const queueAlertText = document.getElementById('queue-alert-text');
-  const btnProcessQueue = document.getElementById('btn-process-queue');
-  const inputSearchHistory = document.getElementById('input-search-history');
-  const historyFilterPills = document.querySelectorAll('#history-filter-pills .filter-pill');
-  const btnExportHistory = document.getElementById('btn-export-history');
-  const btnClearHistory = document.getElementById('btn-clear-history');
-  const recentSyncsList = document.getElementById('recent-syncs-list');
-
-  // DOM Elements - Diagnostics
-  const btnPingWorker = document.getElementById('btn-ping-worker');
-  const btnCheckTab = document.getElementById('btn-check-tab');
-  const btnClearConsole = document.getElementById('btn-clear-console');
-  const consoleOutput = document.getElementById('console-output');
-
-  // DOM Elements - Solution Sync Tab
-  const syncProblemTitle = document.getElementById('sync-problem-title');
-  const syncProblemId = document.getElementById('sync-problem-id');
-  const syncDifficulty = document.getElementById('sync-difficulty');
-  const syncLanguage = document.getElementById('sync-language');
-  const syncTags = document.getElementById('sync-tags');
-  const syncCode = document.getElementById('sync-code');
-  const syncTimeComplexity = document.getElementById('sync-time-complexity');
-  const syncSpaceComplexity = document.getElementById('sync-space-complexity');
-  const syncNotes = document.getElementById('sync-notes');
-  const btnLoadSample = document.getElementById('btn-load-sample');
-  const btnDetectTab = document.getElementById('btn-detect-tab');
-  const btnPreviewBundle = document.getElementById('btn-preview-bundle');
-  const btnSubmitSync = document.getElementById('btn-submit-sync');
-  const btnSubmitSyncText = document.getElementById('btn-submit-sync-text');
-  const syncSpinner = document.getElementById('sync-spinner');
-  const previewDrawer = document.getElementById('preview-drawer');
-  const btnClosePreview = document.getElementById('btn-close-preview');
-  const previewDirPath = document.getElementById('preview-dir-path');
-  const previewReadmeContent = document.getElementById('preview-readme-content');
-
-  // DOM Elements - GitHub Auth Tab
-  const githubProfileCard = document.getElementById('github-profile-card');
-  const authUserAvatar = document.getElementById('auth-user-avatar');
-  const authUserFullname = document.getElementById('auth-user-fullname');
-  const authUserLogin = document.getElementById('auth-user-login');
-  const authScopeBadge = document.getElementById('auth-scope-badge');
-  const authReposCount = document.getElementById('auth-repos-count');
-  const btnDisconnectGithub = document.getElementById('btn-disconnect-github');
-
-  const inputGithubToken = document.getElementById('input-github-token');
-  const btnToggleTokenVis = document.getElementById('btn-toggle-token-vis');
-  const btnSaveToken = document.getElementById('btn-save-token');
-  const btnSaveTokenText = document.getElementById('btn-save-token-text');
-  const tokenSpinner = document.getElementById('token-spinner');
-  const tokenStatusHint = document.getElementById('token-status-hint');
-
-  const selectUserRepo = document.getElementById('select-user-repo');
-  const btnRefreshRepos = document.getElementById('btn-refresh-repos');
+  const userAvatar = document.getElementById('user-avatar');
+  const userDisplayName = document.getElementById('user-display-name');
+  const userHandle = document.getElementById('user-handle');
+  const currentRepoName = document.getElementById('current-repo-name');
+  const currentBranchName = document.getElementById('current-branch-name');
+  const btnDisconnect = document.getElementById('btn-disconnect');
+  const btnToggleChangeRepo = document.getElementById('btn-toggle-change-repo');
+  const changeRepoPanel = document.getElementById('change-repo-panel');
+  const selectRepo = document.getElementById('select-repo');
   const inputCustomRepo = document.getElementById('input-custom-repo');
-  const inputTargetBranch = document.getElementById('input-target-branch');
   const btnSaveRepo = document.getElementById('btn-save-repo');
-  const btnSaveRepoText = document.getElementById('btn-save-repo-text');
-  const repoSpinner = document.getElementById('repo-spinner');
-  const btnCreateRepo = document.getElementById('btn-create-repo');
+  const btnCreateRepoPrompt = document.getElementById('btn-create-repo-prompt');
 
-  // DOM Elements - Settings Tab
+  // DOM Elements - Auto-Sync & Result
   const settingAutoSync = document.getElementById('setting-auto-sync');
-  const settingRagMetadata = document.getElementById('setting-rag-metadata');
+  const syncCountBadge = document.getElementById('sync-count-badge');
+  const resultStatusDot = document.getElementById('result-status-dot');
+  const resultStatusMessage = document.getElementById('result-status-message');
+  const resultTime = document.getElementById('result-time');
+  const resultActions = document.getElementById('result-actions');
+  const resultCommitLink = document.getElementById('result-commit-link');
+
+  // DOM Elements - Settings
+  const btnToggleSettings = document.getElementById('btn-toggle-settings');
+  const settingsPanel = document.getElementById('settings-panel');
+  const settingsArrow = document.getElementById('settings-arrow');
+  const settingTargetBranch = document.getElementById('setting-target-branch');
   const settingPreventDuplicates = document.getElementById('setting-prevent-duplicates');
-  const settingDirPattern = document.getElementById('setting-dir-pattern');
-  const settingCommitPattern = document.getElementById('setting-commit-pattern');
+  const btnTestConnection = document.getElementById('btn-test-connection');
   const btnSaveSettings = document.getElementById('btn-save-settings');
 
-  let toastTimeout = null;
-  let cachedRecentSyncs = [];
-  let currentDifficultyFilter = 'all';
-  let currentSearchQuery = '';
+  let toastTimer = null;
 
   // =========================================================================
-  // Utilities & Logging
+  // Toast Helper
   // =========================================================================
-  function logConsole(text) {
-    if (consoleOutput) {
-      const timestamp = new Date().toLocaleTimeString();
-      consoleOutput.textContent = `[${timestamp}] ${text}\n` + consoleOutput.textContent;
-    }
-  }
-
   function showToast(message, type = 'info', duration = 4000) {
-    if (!toastBanner) return;
-    if (toastTimeout) clearTimeout(toastTimeout);
-
-    toastMessage.textContent = message;
+    if (toastTimer) clearTimeout(toastTimer);
+    toastText.textContent = message;
     toastBanner.className = 'toast-banner';
-
-    if (type === 'success') {
-      toastBanner.classList.add('toast-success');
-      toastIcon.textContent = '✓';
-    } else if (type === 'error') {
-      toastBanner.classList.add('toast-error');
-      toastIcon.textContent = '⚠️';
-    } else {
-      toastIcon.textContent = 'ℹ️';
-    }
-
+    if (type === 'success') toastBanner.classList.add('success');
+    if (type === 'error') toastBanner.classList.add('error');
     toastBanner.classList.remove('hidden');
 
-    toastTimeout = setTimeout(() => {
+    toastTimer = setTimeout(() => {
       toastBanner.classList.add('hidden');
     }, duration);
   }
 
-  if (toastClose) {
-    toastClose.addEventListener('click', () => {
-      if (toastBanner) toastBanner.classList.add('hidden');
-    });
+  // =========================================================================
+  // Render Application State
+  // =========================================================================
+  function renderState(data) {
+    if (!data) return;
+
+    const { auth, syncStatus, settings, totalUniqueProblems } = data;
+
+    // 1. Connection Header & Auth View
+    if (auth && auth.connected) {
+      headerStatusPill.className = 'connection-pill connected';
+      headerStatusLabel.textContent = 'Connected';
+
+      authDisconnectedView.classList.add('hidden');
+      authConnectedView.classList.remove('hidden');
+
+      userDisplayName.textContent = auth.name || auth.username || 'GitHub User';
+      userHandle.textContent = `@${auth.username || 'user'}`;
+      if (auth.avatarUrl) {
+        userAvatar.src = auth.avatarUrl;
+        userAvatar.style.display = 'block';
+      } else {
+        userAvatar.style.display = 'none';
+      }
+
+      currentRepoName.textContent = auth.repo || 'Code_Raginii_Extension';
+      currentBranchName.textContent = auth.branch || 'main';
+    } else {
+      headerStatusPill.className = 'connection-pill';
+      headerStatusLabel.textContent = 'Disconnected';
+
+      authConnectedView.classList.add('hidden');
+      authDisconnectedView.classList.remove('hidden');
+    }
+
+    // 2. Auto-Sync Setting
+    if (settings) {
+      settingAutoSync.checked = settings.autoSync !== false;
+      if (settingTargetBranch) settingTargetBranch.value = settings.targetBranch || 'main';
+      if (settingPreventDuplicates) settingPreventDuplicates.checked = settings.preventDuplicates !== false;
+    }
+
+    // 3. Unique Solved Count
+    const count = totalUniqueProblems || 0;
+    syncCountBadge.textContent = `${count} solved`;
+
+    // 4. Latest Synchronization Result
+    if (syncStatus) {
+      resultStatusDot.className = 'result-dot';
+      if (syncStatus.state === 'success') {
+        resultStatusDot.classList.add('success');
+      } else if (syncStatus.state === 'error') {
+        resultStatusDot.classList.add('error');
+      } else if (syncStatus.state === 'syncing') {
+        resultStatusDot.classList.add('syncing');
+      }
+
+      resultStatusMessage.textContent = syncStatus.latestMessage || 'Waiting for an accepted submission';
+
+      if (syncStatus.lastSyncedAt) {
+        const timeAgo = formatTimeAgo(new Date(syncStatus.lastSyncedAt));
+        resultTime.textContent = `Last sync: ${timeAgo}`;
+        resultTime.classList.remove('hidden');
+      } else {
+        resultTime.classList.add('hidden');
+      }
+
+      if (syncStatus.latestProblem?.commitUrl) {
+        resultCommitLink.href = syncStatus.latestProblem.commitUrl;
+        resultActions.classList.remove('hidden');
+      } else {
+        resultActions.classList.add('hidden');
+      }
+    }
+  }
+
+  function formatTimeAgo(date) {
+    const seconds = Math.floor((new Date() - date) / 1000);
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
   }
 
   // =========================================================================
-  // 1. Tab Navigation
+  // Load State from Background Service Worker
   // =========================================================================
-  function switchTab(tabId) {
-    navTabs.forEach((tab) => {
-      const isActive = tab.getAttribute('data-tab') === tabId;
-      tab.classList.toggle('active', isActive);
-      tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
-    });
-
-    tabPanes.forEach((pane) => {
-      const isTarget = pane.id === tabId;
-      pane.classList.toggle('active', isTarget);
-      pane.classList.toggle('hidden', !isTarget);
-    });
-  }
-
-  navTabs.forEach((tab) => {
-    tab.addEventListener('click', () => {
-      const tabId = tab.getAttribute('data-tab');
-      switchTab(tabId);
-    });
-  });
-
-  if (btnGotoAuth) {
-    btnGotoAuth.addEventListener('click', () => switchTab('tab-github'));
-  }
-
-  if (btnDashSyncNow) {
-    btnDashSyncNow.addEventListener('click', () => switchTab('tab-sync'));
-  }
-
-  // =========================================================================
-  // 2. Load State & Hydration
-  // =========================================================================
-  async function loadState() {
+  async function loadExtensionStatus() {
     try {
-      if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
-        logConsole('Mock environment active.');
-        return;
-      }
-
       const response = await chrome.runtime.sendMessage({ type: 'GET_STATUS' });
-      if (!response || !response.success || !response.data) {
-        logConsole('Unable to retrieve runtime status.');
-        return;
-      }
-
-      const { auth, syncStatus, settings, recentSyncs } = response.data;
-
-      // Update sync counter and settings
-      if (statSyncedCount) statSyncedCount.textContent = syncStatus?.totalSynced ?? (recentSyncs ? recentSyncs.length : 0);
-      if (statAutosyncState) statAutosyncState.textContent = settings?.autoSync ? 'ON' : 'OFF';
-
-      if (settings) {
-        if (settingAutoSync) settingAutoSync.checked = Boolean(settings.autoSync);
-        if (settingRagMetadata) settingRagMetadata.checked = Boolean(settings.ragMetadataEnabled);
-        if (settingPreventDuplicates) settingPreventDuplicates.checked = settings.preventDuplicates !== false;
-        if (settingDirPattern) settingDirPattern.value = settings.directoryPattern || 'problems/{difficulty}/{titleSlug}';
-        if (settingCommitPattern) settingCommitPattern.value = settings.commitMessagePattern || 'Solved {title} [{difficulty}] - RAG_LeetSync';
-      }
-
-      // Check and update offline queue status
-      await checkQueueStatus();
-
-      // Render Recent Ingestions
-      cachedRecentSyncs = recentSyncs || [];
-      renderRecentSyncs();
-
-      // Authentication State
-      const isConnected = Boolean(auth && auth.connected && auth.username);
-      updateAuthUI(isConnected, auth);
-
-      if (isConnected) {
-        logConsole(`Connected to @${auth.username} (${auth.owner || auth.username}/${auth.repo || 'rag_leetsync'})`);
-        fetchUserReposList();
+      if (response && response.success) {
+        renderState(response.data);
       }
     } catch (err) {
-      console.error('State load error:', err);
-      logConsole(`State error: ${err.message}`);
+      console.error('[Code_Raginii] Failed to get status:', err);
     }
   }
 
-  function updateAuthUI(isConnected, auth = {}) {
-    if (systemStatusText) systemStatusText.textContent = isConnected ? 'Connected' : 'Ready';
-    if (navAuthIndicator) navAuthIndicator.classList.toggle('connected', isConnected);
-
-    if (isConnected) {
-      if (githubAuthStatus) {
-        githubAuthStatus.textContent = 'Connected';
-        githubAuthStatus.className = 'status-pill status-pill-connected';
-      }
-      if (authCallout) authCallout.classList.add('hidden');
-      if (repoConnectedView) repoConnectedView.classList.remove('hidden');
-
-      if (dashUserAvatar) dashUserAvatar.src = auth.avatarUrl || '../icons/icon32.png';
-      if (dashUserName) dashUserName.textContent = auth.name || auth.username;
-      if (dashUserHandle) dashUserHandle.textContent = `@${auth.username}`;
-
-      const repoOwner = auth.owner || auth.username;
-      const repoName = auth.repo || 'rag_leetsync';
-      const branch = auth.branch || 'main';
-
-      if (targetRepoName) targetRepoName.textContent = `${repoOwner}/${repoName}`;
-      if (targetBranchName) targetBranchName.textContent = branch;
-      if (statRepoState) statRepoState.textContent = repoName;
-
-      if (btnViewRepo) {
-        btnViewRepo.href = `https://github.com/${repoOwner}/${repoName}`;
-        btnViewRepo.style.pointerEvents = 'auto';
-        btnViewRepo.style.opacity = '1';
-      }
-
-      if (githubProfileCard) githubProfileCard.classList.remove('hidden');
-      if (authUserAvatar) authUserAvatar.src = auth.avatarUrl || '../icons/icon32.png';
-      if (authUserFullname) authUserFullname.textContent = auth.name || auth.username;
-      if (authUserLogin) authUserLogin.textContent = `@${auth.username}`;
-
-      if (authScopeBadge) {
-        const scopes = auth.scopes || [];
-        authScopeBadge.textContent = scopes.includes('repo') ? 'repo scope ✓' : (scopes.length ? scopes.join(', ') : 'repo access');
-      }
-
-      if (inputCustomRepo) inputCustomRepo.value = repoName;
-      if (inputTargetBranch) inputTargetBranch.value = branch;
-
-      if (inputGithubToken) {
-        inputGithubToken.value = '';
-        inputGithubToken.placeholder = auth.maskedToken || '••••••••••••••••';
-      }
-      if (tokenStatusHint) {
-        tokenStatusHint.textContent = `Active token configured (${auth.maskedToken || 'stored'}).`;
-        tokenStatusHint.style.color = '#10b981';
-      }
-      if (btnSaveTokenText) btnSaveTokenText.textContent = 'Update GitHub Token';
-    } else {
-      if (githubAuthStatus) {
-        githubAuthStatus.textContent = 'Not Connected';
-        githubAuthStatus.className = 'status-pill status-pill-pending';
-      }
-      if (authCallout) authCallout.classList.remove('hidden');
-      if (repoConnectedView) repoConnectedView.classList.add('hidden');
-      if (githubProfileCard) githubProfileCard.classList.add('hidden');
-
-      if (targetRepoName) targetRepoName.textContent = 'rag_leetsync';
-      if (targetBranchName) targetBranchName.textContent = 'main';
-      if (statRepoState) statRepoState.textContent = 'Setup';
-
-      if (btnViewRepo) {
-        btnViewRepo.href = '#';
-        btnViewRepo.style.pointerEvents = 'none';
-        btnViewRepo.style.opacity = '0.5';
-      }
-
-      if (inputGithubToken) {
-        inputGithubToken.value = '';
-        inputGithubToken.placeholder = 'ghp_xxxxxxxxxxxxxxxxxxxx';
-      }
-      if (tokenStatusHint) {
-        tokenStatusHint.textContent = 'Never shared or transmitted to external servers.';
-        tokenStatusHint.style.color = '';
-      }
-      if (btnSaveTokenText) btnSaveTokenText.textContent = 'Verify & Connect GitHub';
-    }
-  }
+  // Initial load
+  await loadExtensionStatus();
 
   // =========================================================================
-  // 3. Phase 5: Filterable History & Queue Management
+  // Authentication Actions
   // =========================================================================
-  async function checkQueueStatus() {
-    try {
-      const response = await chrome.runtime.sendMessage({ type: 'GET_QUEUE_STATUS' });
-      if (response && response.success && response.count > 0) {
-        if (queueAlertBanner) queueAlertBanner.classList.remove('hidden');
-        if (queueAlertText) {
-          queueAlertText.textContent = `${response.count} solution${response.count > 1 ? 's' : ''} queued offline`;
-        }
-      } else {
-        if (queueAlertBanner) queueAlertBanner.classList.add('hidden');
-      }
-    } catch (e) {}
-  }
-
-  function renderRecentSyncs() {
-    if (!recentSyncsList) return;
-
-    let filtered = cachedRecentSyncs;
-
-    // Filter by difficulty pill
-    if (currentDifficultyFilter !== 'all') {
-      filtered = filtered.filter(
-        item => (item.difficulty || 'Easy').toLowerCase() === currentDifficultyFilter.toLowerCase()
-      );
-    }
-
-    // Filter by search query
-    if (currentSearchQuery.trim()) {
-      const query = currentSearchQuery.toLowerCase().trim();
-      filtered = filtered.filter(item => {
-        const titleMatch = (item.title || '').toLowerCase().includes(query);
-        const langMatch = (item.language || '').toLowerCase().includes(query);
-        const idMatch = String(item.id || '').includes(query);
-        return titleMatch || langMatch || idMatch;
-      });
-    }
-
-    if (filtered.length === 0) {
-      if (cachedRecentSyncs.length === 0) {
-        recentSyncsList.innerHTML = '<div class="empty-syncs-notice">No problems synced yet. Click "Sync Solution" above to ingest your first problem!</div>';
-      } else {
-        recentSyncsList.innerHTML = '<div class="empty-syncs-notice">No problems match your current search/filter.</div>';
-      }
-      return;
-    }
-
-    recentSyncsList.innerHTML = '';
-    filtered.slice(0, 15).forEach((item) => {
-      const row = document.createElement('div');
-      row.className = 'recent-sync-item';
-
-      const diff = (item.difficulty || 'Easy').toLowerCase();
-      const diffClass = diff === 'hard' ? 'diff-hard' : diff === 'medium' ? 'diff-medium' : 'diff-easy';
-      const shortSha = item.commitSha ? item.commitSha.slice(0, 7) : 'commit';
-
-      row.innerHTML = `
-        <div class="sync-item-left">
-          <span class="sync-diff-badge ${diffClass}">${item.difficulty || 'Easy'}</span>
-          <span class="sync-item-title" title="${item.title}">${item.id ? `${item.id}. ` : ''}${item.title}</span>
-        </div>
-        <div class="sync-item-right">
-          <span class="sync-lang-tag">${item.language || ''}</span>
-          ${item.commitUrl ? `<a href="${item.commitUrl}" target="_blank" class="sync-commit-link" title="Open commit on GitHub">${shortSha}</a>` : `<span class="sync-commit-link">${shortSha}</span>`}
-        </div>
-      `;
-      recentSyncsList.appendChild(row);
+  if (btnTogglePat) {
+    btnTogglePat.addEventListener('click', () => {
+      inputPat.type = inputPat.type === 'password' ? 'text' : 'password';
     });
   }
 
-  // Search History Input
-  if (inputSearchHistory) {
-    inputSearchHistory.addEventListener('input', (e) => {
-      currentSearchQuery = e.target.value;
-      renderRecentSyncs();
-    });
-  }
-
-  // Difficulty Filter Pills
-  historyFilterPills.forEach((pill) => {
-    pill.addEventListener('click', () => {
-      historyFilterPills.forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
-      currentDifficultyFilter = pill.getAttribute('data-filter') || 'all';
-      renderRecentSyncs();
-    });
-  });
-
-  // Process Offline Queue Button
-  if (btnProcessQueue) {
-    btnProcessQueue.addEventListener('click', async () => {
-      btnProcessQueue.disabled = true;
-      showToast('Processing offline retry queue...', 'info');
-      logConsole('Draining offline retry queue...');
-
-      try {
-        const response = await chrome.runtime.sendMessage({ type: 'PROCESS_SYNC_QUEUE' });
-        if (response && response.success) {
-          showToast(`Queue processed: ${response.processed} synced, ${response.remaining} remaining.`, 'success');
-          logConsole(`Queue processed: ${response.processed} succeeded, ${response.remaining} remaining.`);
-          await loadState();
-        } else {
-          showToast(response?.error || 'Failed to process queue.', 'error');
-        }
-      } catch (err) {
-        showToast(`Queue processing error: ${err.message}`, 'error');
-      } finally {
-        btnProcessQueue.disabled = false;
-      }
-    });
-  }
-
-  // Export History as JSON
-  if (btnExportHistory) {
-    btnExportHistory.addEventListener('click', async () => {
-      try {
-        const response = await chrome.runtime.sendMessage({ type: 'EXPORT_HISTORY' });
-        if (response && response.success && response.exportData) {
-          const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(response.exportData, null, 2));
-          const downloadAnchor = document.createElement('a');
-          downloadAnchor.setAttribute('href', dataStr);
-          downloadAnchor.setAttribute('download', `rag_leetsync_history_${new Date().toISOString().split('T')[0]}.json`);
-          document.body.appendChild(downloadAnchor);
-          downloadAnchor.click();
-          downloadAnchor.remove();
-
-          showToast('Sync history exported to JSON!', 'success');
-          logConsole('Exported complete solution history JSON.');
-        } else {
-          showToast('Failed to export history.', 'error');
-        }
-      } catch (err) {
-        showToast(`Export error: ${err.message}`, 'error');
-      }
-    });
-  }
-
-  // Clear History
-  if (btnClearHistory) {
-    btnClearHistory.addEventListener('click', async () => {
-      const confirmed = confirm('Are you sure you want to clear your local sync history and duplicate cache? (This will not delete files from your GitHub repository).');
-      if (!confirmed) return;
-
-      try {
-        const response = await chrome.runtime.sendMessage({ type: 'CLEAR_HISTORY' });
-        if (response && response.success) {
-          cachedRecentSyncs = [];
-          renderRecentSyncs();
-          if (statSyncedCount) statSyncedCount.textContent = '0';
-          showToast('Local sync history cleared.', 'info');
-          logConsole('Local sync history and registry cleared.');
-        }
-      } catch (err) {
-        showToast(`Clear error: ${err.message}`, 'error');
-      }
-    });
-  }
-
-  // =========================================================================
-  // 4. Solution Ingestion Form & Preview (Sync Tab)
-  // =========================================================================
-  function collectProblemData() {
-    return {
-      title: syncProblemTitle ? syncProblemTitle.value.trim() : '',
-      id: syncProblemId && syncProblemId.value ? parseInt(syncProblemId.value, 10) : null,
-      difficulty: syncDifficulty ? syncDifficulty.value : 'Easy',
-      language: syncLanguage ? syncLanguage.value : 'python3',
-      tags: syncTags ? syncTags.value.trim() : '',
-      code: syncCode ? syncCode.value : '',
-      timeComplexity: syncTimeComplexity && syncTimeComplexity.value ? syncTimeComplexity.value.trim() : 'O(N)',
-      spaceComplexity: syncSpaceComplexity && syncSpaceComplexity.value ? syncSpaceComplexity.value.trim() : 'O(1)',
-      notes: syncNotes ? syncNotes.value.trim() : ''
-    };
-  }
-
-  if (btnLoadSample) {
-    btnLoadSample.addEventListener('click', () => {
-      if (syncProblemTitle) syncProblemTitle.value = 'Two Sum';
-      if (syncProblemId) syncProblemId.value = '1';
-      if (syncDifficulty) syncDifficulty.value = 'Easy';
-      if (syncLanguage) syncLanguage.value = 'python3';
-      if (syncTags) syncTags.value = 'Array, Hash Table';
-      if (syncTimeComplexity) syncTimeComplexity.value = 'O(N)';
-      if (syncSpaceComplexity) syncSpaceComplexity.value = 'O(N)';
-      if (syncNotes) syncNotes.value = 'Iterate through the array and use a hash map to look up the required complement (target - num) in O(1) time.';
-
-      if (syncCode) {
-        syncCode.value = `class Solution:
-    def twoSum(self, nums: list[int], target: int) -> list[int]:
-        seen = {}
-        for i, num in enumerate(nums):
-            complement = target - num
-            if complement in seen:
-                return [seen[complement], i]
-            seen[num] = i
-        return []`;
-      }
-      showToast('Loaded sample "Two Sum" solution!', 'info');
-      logConsole('Loaded Two Sum sample solution into form.');
-    });
-  }
-
-  if (btnDetectTab) {
-    btnDetectTab.addEventListener('click', async () => {
-      btnDetectTab.disabled = true;
-      logConsole('Inspecting active tab for LeetCode problem...');
-      try {
-        const response = await chrome.runtime.sendMessage({ type: 'INSPECT_ACTIVE_LEETCODE_TAB' });
-        if (response && response.success && response.isLeetCode && response.isProblemPage) {
-          if (syncProblemTitle) syncProblemTitle.value = response.title;
-          showToast(`Detected problem: ${response.title}`, 'success');
-          logConsole(`Auto-detected LeetCode problem: "${response.title}" (${response.slug})`);
-        } else if (response && response.isLeetCode) {
-          showToast('Active tab is on LeetCode, but not a specific problem page.', 'info');
-        } else {
-          showToast('Current tab is not a LeetCode problem.', 'info');
-        }
-      } catch (err) {
-        showToast(`Detection error: ${err.message}`, 'error');
-      } finally {
-        btnDetectTab.disabled = false;
-      }
-    });
-  }
-
-  if (btnPreviewBundle) {
-    btnPreviewBundle.addEventListener('click', async () => {
-      const problem = collectProblemData();
-      if (!problem.title) {
-        showToast('Please provide a problem title to preview.', 'error');
-        if (syncProblemTitle) syncProblemTitle.focus();
-        return;
-      }
-
-      logConsole(`Generating RAG preview for "${problem.title}"...`);
-      try {
-        const response = await chrome.runtime.sendMessage({
-          type: 'PREVIEW_PROBLEM_BUNDLE',
-          payload: { problem }
-        });
-
-        if (response && response.success && response.bundle) {
-          const bundle = response.bundle;
-          if (previewDirPath) previewDirPath.textContent = `${bundle.dirPath}/`;
-          const readmeFile = bundle.files.find(f => f.path.endsWith('README.md'));
-          if (previewReadmeContent) {
-            previewReadmeContent.textContent = readmeFile ? readmeFile.content : 'Preview generated.';
-          }
-          if (previewDrawer) previewDrawer.classList.remove('hidden');
-          logConsole(`RAG bundle preview generated for path: ${bundle.dirPath}`);
-        }
-      } catch (err) {
-        showToast(`Preview failed: ${err.message}`, 'error');
-      }
-    });
-  }
-
-  if (btnClosePreview && previewDrawer) {
-    btnClosePreview.addEventListener('click', () => {
-      previewDrawer.classList.add('hidden');
-    });
-  }
-
-  if (btnSubmitSync) {
-    btnSubmitSync.addEventListener('click', async () => {
-      const problem = collectProblemData();
-
-      if (!problem.title) {
-        showToast('Problem title is required.', 'error');
-        if (syncProblemTitle) syncProblemTitle.focus();
-        return;
-      }
-      if (!problem.code) {
-        showToast('Solution code is required. Paste your solution before syncing.', 'error');
-        if (syncCode) syncCode.focus();
-        return;
-      }
-
-      btnSubmitSync.disabled = true;
-      if (syncSpinner) syncSpinner.classList.remove('hidden');
-      if (btnSubmitSyncText) btnSubmitSyncText.textContent = 'Syncing to GitHub...';
-      logConsole(`Initiating sync for "${problem.title}"...`);
-      showToast(`Pushing "${problem.title}" to GitHub...`, 'info');
-
-      try {
-        const response = await chrome.runtime.sendMessage({
-          type: 'SYNC_PROBLEM',
-          payload: { problem }
-        });
-
-        if (response && response.success) {
-          if (response.duplicate) {
-            showToast(`"${problem.title}" is already up to date on GitHub! (Identical code)`, 'info', 5000);
-            logConsole(`Duplicate detected for "${problem.title}". Skipped re-upload.`);
-          } else {
-            const sha = response.commitSha ? response.commitSha.slice(0, 7) : 'done';
-            showToast(`"${problem.title}" successfully synced to GitHub (${sha})!`, 'success', 5000);
-            logConsole(`Solution committed! SHA: ${sha}. Path: ${response.dirPath}.`);
-          }
-
-          await loadState();
-          setTimeout(() => switchTab('tab-dashboard'), 1500);
-        } else if (response && response.enqueued) {
-          showToast(`Network error. "${problem.title}" queued for offline retry.`, 'error', 6000);
-          await loadState();
-        } else {
-          const errMsg = response?.error || 'Failed to sync solution to GitHub.';
-          showToast(errMsg, 'error', 6000);
-          logConsole(`Sync error: ${errMsg}`);
-        }
-      } catch (err) {
-        showToast(`Sync request failed: ${err.message}`, 'error');
-        logConsole(`Sync failure: ${err.message}`);
-      } finally {
-        btnSubmitSync.disabled = false;
-        if (syncSpinner) syncSpinner.classList.add('hidden');
-        if (btnSubmitSyncText) btnSubmitSyncText.textContent = 'Sync to GitHub';
-      }
-    });
-  }
-
-  // =========================================================================
-  // 5. GitHub Auth & Repository Selection
-  // =========================================================================
-  if (btnToggleTokenVis && inputGithubToken) {
-    btnToggleTokenVis.addEventListener('click', () => {
-      const isPassword = inputGithubToken.type === 'password';
-      inputGithubToken.type = isPassword ? 'text' : 'password';
-    });
-  }
-
-  if (btnSaveToken && inputGithubToken) {
-    btnSaveToken.addEventListener('click', async () => {
-      const token = inputGithubToken.value.trim();
+  if (btnConnectGithub) {
+    btnConnectGithub.addEventListener('click', async () => {
+      const token = inputPat.value.trim();
       if (!token) {
         showToast('Please enter your GitHub Personal Access Token.', 'error');
-        inputGithubToken.focus();
         return;
       }
 
-      btnSaveToken.disabled = true;
-      if (tokenSpinner) tokenSpinner.classList.remove('hidden');
-      if (btnSaveTokenText) btnSaveTokenText.textContent = 'Verifying credentials...';
-      logConsole('Connecting to GitHub API with token...');
+      btnConnectGithub.disabled = true;
+      btnConnectText.textContent = 'Connecting...';
+      connectSpinner.classList.remove('hidden');
 
       try {
-        const response = await chrome.runtime.sendMessage({
+        const res = await chrome.runtime.sendMessage({
           type: 'GITHUB_VALIDATE_TOKEN',
           payload: { token }
         });
 
-        if (response && response.success) {
-          showToast(`Connected to GitHub as @${response.user.login}!`, 'success');
-          logConsole(`Token validated for @${response.user.login}.`);
-          await loadState();
+        if (res && res.success) {
+          showToast(`Connected as @${res.user.login}!`, 'success');
+          inputPat.value = '';
+          await loadExtensionStatus();
         } else {
-          showToast(response?.error || 'Failed to authenticate token with GitHub.', 'error');
+          showToast(res?.error || 'Authentication failed. Please verify your token.', 'error');
         }
       } catch (err) {
         showToast(`Connection error: ${err.message}`, 'error');
       } finally {
-        btnSaveToken.disabled = false;
-        if (tokenSpinner) tokenSpinner.classList.add('hidden');
-        if (btnSaveTokenText) btnSaveTokenText.textContent = 'Verify & Connect GitHub';
+        btnConnectGithub.disabled = false;
+        btnConnectText.textContent = 'Connect GitHub';
+        connectSpinner.classList.add('hidden');
       }
     });
   }
 
-  async function fetchUserReposList() {
-    if (!selectUserRepo) return;
-    try {
-      selectUserRepo.innerHTML = '<option value="">Loading repositories from GitHub...</option>';
-      const response = await chrome.runtime.sendMessage({ type: 'GITHUB_GET_REPOS' });
+  if (btnDisconnect) {
+    btnDisconnect.addEventListener('click', async () => {
+      const confirmed = confirm('Disconnect your GitHub account? Auto-sync will be paused.');
+      if (!confirmed) return;
 
-      if (response && response.success && Array.isArray(response.repos)) {
-        const repos = response.repos;
-        if (authReposCount) authReposCount.textContent = `${repos.length} repos`;
-
-        selectUserRepo.innerHTML = '<option value="">-- Choose an existing repository --</option>';
-        repos.forEach((repo) => {
-          const opt = document.createElement('option');
-          opt.value = repo.fullName;
-          opt.textContent = `${repo.fullName} ${repo.private ? '🔒' : ''}`;
-          opt.dataset.defaultBranch = repo.defaultBranch;
-          selectUserRepo.appendChild(opt);
-        });
-      } else {
-        selectUserRepo.innerHTML = '<option value="">Unable to load repositories</option>';
-      }
-    } catch (err) {
-      console.error('Error fetching repos:', err);
-    }
-  }
-
-  if (btnRefreshRepos) {
-    btnRefreshRepos.addEventListener('click', async () => {
-      btnRefreshRepos.disabled = true;
-      logConsole('Refreshing repository list from GitHub...');
-      await fetchUserReposList();
-      btnRefreshRepos.disabled = false;
-      showToast('Repository list refreshed.', 'info');
-    });
-  }
-
-  if (selectUserRepo) {
-    selectUserRepo.addEventListener('change', () => {
-      const selected = selectUserRepo.value;
-      if (selected) {
-        const parts = selected.split('/');
-        const repoName = parts[1] || selected;
-        if (inputCustomRepo) inputCustomRepo.value = repoName;
-
-        const selectedOpt = selectUserRepo.options[selectUserRepo.selectedIndex];
-        if (selectedOpt && selectedOpt.dataset.defaultBranch && inputTargetBranch) {
-          inputTargetBranch.value = selectedOpt.dataset.defaultBranch;
+      try {
+        const res = await chrome.runtime.sendMessage({ type: 'GITHUB_DISCONNECT' });
+        if (res && res.success) {
+          showToast('Disconnected from GitHub.', 'info');
+          await loadExtensionStatus();
         }
+      } catch (err) {
+        showToast(`Disconnect failed: ${err.message}`, 'error');
+      }
+    });
+  }
+
+  // =========================================================================
+  // Repository Selection Actions
+  // =========================================================================
+  if (btnToggleChangeRepo) {
+    btnToggleChangeRepo.addEventListener('click', async () => {
+      const isHidden = changeRepoPanel.classList.contains('hidden');
+      if (isHidden) {
+        changeRepoPanel.classList.remove('hidden');
+        btnToggleChangeRepo.textContent = 'Close';
+
+        // Fetch user repositories
+        try {
+          selectRepo.innerHTML = '<option value="">Loading repositories...</option>';
+          const res = await chrome.runtime.sendMessage({ type: 'GITHUB_GET_REPOS' });
+          if (res && res.success && res.repos.length > 0) {
+            selectRepo.innerHTML = '<option value="">-- Choose an existing repository --</option>';
+            res.repos.forEach((r) => {
+              const opt = document.createElement('option');
+              opt.value = r.name;
+              opt.textContent = `${r.name} ${r.private ? '🔒' : ''}`;
+              selectRepo.appendChild(opt);
+            });
+          } else {
+            selectRepo.innerHTML = '<option value="">No repositories found</option>';
+          }
+        } catch (e) {
+          selectRepo.innerHTML = '<option value="">Failed to load repositories</option>';
+        }
+      } else {
+        changeRepoPanel.classList.add('hidden');
+        btnToggleChangeRepo.textContent = 'Change Repository';
+      }
+    });
+  }
+
+  if (selectRepo) {
+    selectRepo.addEventListener('change', () => {
+      if (selectRepo.value) {
+        inputCustomRepo.value = selectRepo.value;
       }
     });
   }
 
   if (btnSaveRepo) {
     btnSaveRepo.addEventListener('click', async () => {
-      const repoName = inputCustomRepo ? inputCustomRepo.value.trim() : '';
-      const branch = inputTargetBranch ? inputTargetBranch.value.trim() : 'main';
-
+      const repoName = inputCustomRepo.value.trim() || selectRepo.value.trim();
       if (!repoName) {
-        showToast('Please specify a repository name.', 'error');
+        showToast('Please select or type a repository name.', 'error');
         return;
       }
 
-      btnSaveRepo.disabled = true;
-      if (repoSpinner) repoSpinner.classList.remove('hidden');
-      if (btnSaveRepoText) btnSaveRepoText.textContent = 'Verifying...';
-
       try {
-        const response = await chrome.runtime.sendMessage({
+        const res = await chrome.runtime.sendMessage({
           type: 'GITHUB_SELECT_REPO',
-          payload: { repoName, branch }
+          payload: { repoName }
         });
 
-        if (response && response.success) {
-          showToast(`Repository set: ${response.repo.fullName} (${response.repo.branch})`, 'success');
-          await loadState();
-        } else if (response && response.notFound) {
-          showToast(`Repository '${repoName}' does not exist on GitHub yet. Click "Create New Repo" below to initialize it!`, 'error', 5000);
+        if (res && res.success) {
+          showToast(`Selected repository: ${res.repo.name}`, 'success');
+          changeRepoPanel.classList.add('hidden');
+          btnToggleChangeRepo.textContent = 'Change Repository';
+          await loadExtensionStatus();
+        } else if (res && res.notFound) {
+          const create = confirm(`Repository '${repoName}' does not exist on your GitHub. Create it now?`);
+          if (create) {
+            await createRepo(repoName);
+          }
         } else {
-          showToast(response?.error || 'Failed to configure repository.', 'error');
+          showToast(res?.error || 'Failed to select repository.', 'error');
         }
       } catch (err) {
         showToast(`Error: ${err.message}`, 'error');
-      } finally {
-        btnSaveRepo.disabled = false;
-        if (repoSpinner) repoSpinner.classList.add('hidden');
-        if (btnSaveRepoText) btnSaveRepoText.textContent = 'Set Repository';
       }
     });
   }
 
-  if (btnCreateRepo) {
-    btnCreateRepo.addEventListener('click', async () => {
-      const repoName = inputCustomRepo ? inputCustomRepo.value.trim() || 'rag_leetsync' : 'rag_leetsync';
-      const confirmed = confirm(`Create new GitHub repository "${repoName}" for your LeetCode solutions?`);
-      if (!confirmed) return;
+  async function createRepo(name) {
+    try {
+      const res = await chrome.runtime.sendMessage({
+        type: 'GITHUB_CREATE_REPO',
+        payload: { repoName: name, isPrivate: false }
+      });
+      if (res && res.success) {
+        showToast(`Created & selected repository: ${res.repo.name}!`, 'success');
+        changeRepoPanel.classList.add('hidden');
+        btnToggleChangeRepo.textContent = 'Change Repository';
+        await loadExtensionStatus();
+      } else {
+        showToast(res?.error || 'Failed to create repository.', 'error');
+      }
+    } catch (e) {
+      showToast(`Creation error: ${e.message}`, 'error');
+    }
+  }
 
-      btnCreateRepo.disabled = true;
+  if (btnCreateRepoPrompt) {
+    btnCreateRepoPrompt.addEventListener('click', async () => {
+      const name = inputCustomRepo.value.trim() || 'Code_Raginii_Extension';
+      await createRepo(name);
+    });
+  }
+
+  // =========================================================================
+  // Auto-Sync Toggle
+  // =========================================================================
+  if (settingAutoSync) {
+    settingAutoSync.addEventListener('change', async () => {
+      const isEnabled = settingAutoSync.checked;
       try {
-        const response = await chrome.runtime.sendMessage({
-          type: 'GITHUB_CREATE_REPO',
-          payload: { repoName, isPrivate: false }
+        await chrome.runtime.sendMessage({
+          type: 'UPDATE_SETTINGS',
+          payload: { autoSync: isEnabled }
         });
-
-        if (response && response.success) {
-          showToast(`Repository "${response.repo.fullName}" created successfully!`, 'success');
-          await loadState();
-        } else {
-          showToast(response?.error || 'Failed to create repository.', 'error');
-        }
-      } catch (err) {
-        showToast(`Creation error: ${err.message}`, 'error');
-      } finally {
-        btnCreateRepo.disabled = false;
-      }
-    });
-  }
-
-  if (btnTestSync) {
-    btnTestSync.addEventListener('click', async () => {
-      btnTestSync.disabled = true;
-      showToast('Pushing integration verification commit to GitHub...', 'info');
-
-      try {
-        const response = await chrome.runtime.sendMessage({ type: 'GITHUB_TEST_SYNC' });
-        if (response && response.success) {
-          const sha = response.commitSha ? response.commitSha.slice(0, 7) : 'verified';
-          showToast(`Test commit created successfully (${sha})!`, 'success');
-          logConsole(`Verified live push! Commit: ${sha}. File: RAG_SYNC_TEST.md`);
-          await loadState();
-        } else {
-          showToast(response?.error || 'Failed to push test commit.', 'error');
-        }
-      } catch (err) {
-        showToast(`Sync error: ${err.message}`, 'error');
-      } finally {
-        btnTestSync.disabled = false;
-      }
-    });
-  }
-
-  if (btnDisconnectGithub) {
-    btnDisconnectGithub.addEventListener('click', async () => {
-      const confirmed = confirm('Disconnect your GitHub account and clear stored token?');
-      if (!confirmed) return;
-
-      try {
-        await chrome.runtime.sendMessage({ type: 'GITHUB_DISCONNECT' });
-        showToast('GitHub account disconnected.', 'info');
-        await loadState();
-      } catch (err) {
-        showToast(`Disconnect error: ${err.message}`, 'error');
+        showToast(isEnabled ? 'Auto-sync enabled' : 'Auto-sync disabled', 'info');
+      } catch (e) {
+        showToast('Failed to update auto-sync setting.', 'error');
       }
     });
   }
 
   // =========================================================================
-  // 6. Settings Persistence
+  // Settings Section
   // =========================================================================
+  if (btnToggleSettings) {
+    btnToggleSettings.addEventListener('click', () => {
+      const isHidden = settingsPanel.classList.contains('hidden');
+      if (isHidden) {
+        settingsPanel.classList.remove('hidden');
+        settingsArrow.classList.add('open');
+      } else {
+        settingsPanel.classList.add('hidden');
+        settingsArrow.classList.remove('open');
+      }
+    });
+  }
+
   if (btnSaveSettings) {
     btnSaveSettings.addEventListener('click', async () => {
-      const payload = {
-        autoSync: Boolean(settingAutoSync?.checked),
-        ragMetadataEnabled: Boolean(settingRagMetadata?.checked),
-        preventDuplicates: Boolean(settingPreventDuplicates?.checked),
-        directoryPattern: settingDirPattern ? settingDirPattern.value.trim() : 'problems/{difficulty}/{titleSlug}',
-        commitMessagePattern: settingCommitPattern ? settingCommitPattern.value.trim() : 'Solved {title} [{difficulty}] - RAG_LeetSync'
-      };
+      const branch = settingTargetBranch.value.trim() || 'main';
+      const preventDuplicates = settingPreventDuplicates.checked;
 
       try {
-        const response = await chrome.runtime.sendMessage({ type: 'UPDATE_SETTINGS', payload });
-        if (response && response.success) {
-          showToast('Preferences saved successfully!', 'success');
-          await loadState();
+        await chrome.runtime.sendMessage({
+          type: 'UPDATE_SETTINGS',
+          payload: {
+            targetBranch: branch,
+            preventDuplicates: preventDuplicates
+          }
+        });
+        showToast('Settings saved successfully!', 'success');
+        await loadExtensionStatus();
+      } catch (e) {
+        showToast('Failed to save settings.', 'error');
+      }
+    });
+  }
+
+  if (btnTestConnection) {
+    btnTestConnection.addEventListener('click', async () => {
+      btnTestConnection.disabled = true;
+      btnTestConnection.textContent = 'Testing...';
+      try {
+        const res = await chrome.runtime.sendMessage({ type: 'GITHUB_TEST_SYNC' });
+        if (res && res.success) {
+          showToast('Write permission verified! Test file committed.', 'success');
+          await loadExtensionStatus();
         } else {
-          showToast('Failed to save settings.', 'error');
+          showToast(res?.error || 'Write test failed.', 'error');
         }
-      } catch (err) {
-        showToast(`Save error: ${err.message}`, 'error');
+      } catch (e) {
+        showToast(`Test error: ${e.message}`, 'error');
+      } finally {
+        btnTestConnection.disabled = false;
+        btnTestConnection.textContent = 'Test Write Permission';
       }
     });
   }
-
-  // =========================================================================
-  // 7. Diagnostics
-  // =========================================================================
-  if (btnPingWorker) {
-    btnPingWorker.addEventListener('click', async () => {
-      logConsole('Pinging background worker...');
-      try {
-        const response = await chrome.runtime.sendMessage({ type: 'PING' });
-        if (response && response.status === 'PONG') {
-          const time = response.timestamp.split('T')[1].replace('Z', '');
-          logConsole(`PONG from worker v${response.version} at ${time}`);
-          if (headerStatusDot) headerStatusDot.style.background = '#10b981';
-        }
-      } catch (err) {
-        logConsole(`Worker ping failed: ${err.message}`);
-      }
-    });
-  }
-
-  if (btnCheckTab) {
-    btnCheckTab.addEventListener('click', async () => {
-      logConsole('Checking current tab...');
-      try {
-        const response = await chrome.runtime.sendMessage({ type: 'INSPECT_ACTIVE_LEETCODE_TAB' });
-        if (response && response.isLeetCode) {
-          logConsole(`LeetCode tab detected: ${response.url}`);
-        } else {
-          logConsole(`Active tab is not LeetCode (${response?.hostname || 'unknown'}).`);
-        }
-      } catch (err) {
-        logConsole(`Tab check error: ${err.message}`);
-      }
-    });
-  }
-
-  if (btnClearConsole && consoleOutput) {
-    btnClearConsole.addEventListener('click', () => {
-      consoleOutput.textContent = 'Log cleared.';
-    });
-  }
-
-  // Initial load
-  await loadState();
 });
