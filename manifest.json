@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Code_Raginii",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Automatically sync accepted LeetCode solutions to GitHub.",
   "icons": {
     "16": "icons/icon16.png",
@@ -24,6 +24,12 @@
     "type": "module"
   },
   "content_scripts": [
+    {
+      "matches": ["https://leetcode.com/problems/*"],
+      "js": ["content/main-world.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
     {
       "matches": ["https://leetcode.com/problems/*"],
       "js": ["content/leetcode.js"],

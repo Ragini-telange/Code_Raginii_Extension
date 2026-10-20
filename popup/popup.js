@@ -41,6 +41,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const resultTime = document.getElementById('result-time');
   const resultActions = document.getElementById('result-actions');
   const resultCommitLink = document.getElementById('result-commit-link');
+  const btnSyncNow = document.getElementById('btn-sync-now');
+  const btnSyncNowText = document.getElementById('btn-sync-now-text');
+  const syncNowSpinner = document.getElementById('sync-now-spinner');
 
   // DOM Elements - Settings
   const btnToggleSettings = document.getElementById('btn-toggle-settings');
@@ -171,6 +174,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Initial load
   await loadExtensionStatus();
+
+  // =========================================================================
+  // Manual Sync Button
+  // =========================================================================
+  if (btnSyncNow) {
+    btnSyncNow.addEventListener('click', async () => {
+      btnSyncNow.disabled = true;
+      if (btnSyncNowText) btnSyncNowText.textContent = 'Syncing...';
+      if (syncNowSpinner) syncNowSpinner.classList.remove('hidden');
+
+      try {
+        const res = await chrome.runtime.sendMessage({ type: 'SYNC_CURRENT_TAB_PROBLEM' });
+        if (res && res.success) {
+          showToast('Uploaded solution successfully to GitHub!', 'success');
+          await loadExtensionStatus();
+        } else {
+          showToast(res?.error || 'Failed to sync. Please refresh the LeetCode tab and try again.', 'error');
+        }
+      } catch (err) {
+        showToast(`Sync error: ${err.message}`, 'error');
+      } finally {
+        btnSyncNow.disabled = false;
+        if (btnSyncNowText) btnSyncNowText.textContent = '⚡ Sync Open LeetCode Problem';
+        if (syncNowSpinner) syncNowSpinner.classList.add('hidden');
+      }
+    });
+  }
 
   // =========================================================================
   // Authentication Actions

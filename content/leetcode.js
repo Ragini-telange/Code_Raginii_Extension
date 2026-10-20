@@ -1,50 +1,37 @@
 /**
  * Code_Raginii - Content Script for LeetCode
- * Injected on https://leetcode.com/problems/* to observe submissions,
+ * Runs on https://leetcode.com/problems/* to observe submissions,
  * extract accepted code, and coordinate automatic synchronization to GitHub.
  */
 
 (function () {
   'use strict';
 
-  console.log('[Code_Raginii] Content script active on:', window.location.pathname);
+  console.log('[Code_Raginii] Content script loaded on:', window.location.pathname);
 
   let lastProcessedSubmissionId = null;
   let isSyncing = false;
   let toastTimeout = null;
 
   // =========================================================================
-  // 1. Inject Main-World Script for Monaco & Network Interception
-  // =========================================================================
-  function injectMainWorldScript() {
-    try {
-      const script = document.createElement('script');
-      script.src = chrome.runtime.getURL('content/main-world.js');
-      script.onload = function () {
-        this.remove();
-      };
-      (document.head || document.documentElement).appendChild(script);
-      console.log('[Code_Raginii] Injected main-world interceptor.');
-    } catch (e) {
-      console.warn('[Code_Raginii] Failed to inject main-world script:', e);
-    }
-  }
-
-  injectMainWorldScript();
-
-  // =========================================================================
-  // 2. Problem Metadata Extraction from DOM
+  // 1. Problem Metadata Extraction from DOM & URL
   // =========================================================================
   function getProblemSlug() {
-    const match = window.location.pathname.match(/\/problems\/([^\/]+)/);
-    return match ? match[1] : '';
+    const rawPath = decodeURIComponent(window.location.pathname);
+    const match = rawPath.match(/\/problems\/([^\/]+)/);
+    if (!match) return '';
+    return match[1]
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^\w\-]+/g, '');
   }
 
   function extractProblemMetadata() {
     const slug = getProblemSlug();
     let title = slug
       .split('-')
-      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(' ');
     let id = null;
 
@@ -53,7 +40,8 @@
       '[data-cy="question-title"]',
       'div.text-title-large',
       'div[class*="text-title-large"]',
-      'a[href*="/problems/"]'
+      'a[href*="/problems/"]',
+      'div[class*="title"]'
     ];
 
     for (const sel of titleSelectors) {
@@ -64,14 +52,14 @@
         if (numMatch) {
           id = parseInt(numMatch[1], 10);
           title = numMatch[2].trim();
-        } else {
+        } else if (!text.includes('LeetCode') && text.length > 2 && text.length < 80) {
           title = text;
         }
         break;
       }
     }
 
-    // Check document title fallback (e.g. "1. Two Sum - LeetCode")
+    // Check document title fallback (e.g. "13. Roman to Integer - LeetCode")
     if (!id && document.title) {
       const docMatch = document.title.match(/^(\d+)\.\s*(.+?)(?:\s*-\s*LeetCode)?$/);
       if (docMatch) {
@@ -80,14 +68,28 @@
       }
     }
 
+    // Known common problem fallback by slug if id still missing
+    if (!id) {
+      if (slug === 'roman-to-integer') id = 13;
+      else if (slug === 'two-sum') id = 1;
+      else if (slug === 'add-two-numbers') id = 2;
+      else if (slug === 'longest-substring-without-repeating-characters') id = 3;
+      else if (slug === 'median-of-two-sorted-arrays') id = 4;
+      else if (slug === 'palindrome-number') id = 9;
+      else if (slug === 'longest-common-prefix') id = 14;
+      else if (slug === '3sum') id = 15;
+      else if (slug === 'valid-parentheses') id = 20;
+    }
+
     // Difficulty extraction
-    let difficulty = 'Medium';
+    let difficulty = 'Easy';
     const diffSelectors = [
       'div[class*="text-difficulty-"]',
       'div[class*="text-olive"]',
       'div[class*="text-yellow"]',
       'div[class*="text-pink"]',
-      'span[class*="difficulty"]'
+      'span[class*="difficulty"]',
+      'span[class*="text-olive"]'
     ];
 
     for (const sel of diffSelectors) {
@@ -102,20 +104,37 @@
     }
 
     // Language extraction from dropdown or editor button
-    let language = 'python3';
-    const langBtn = document.querySelector('button[id*="headlessui-listbox-button"], button[class*="rounded"]');
-    if (langBtn && langBtn.textContent) {
-      const langText = langBtn.textContent.trim().toLowerCase();
-      if (langText.includes('python')) language = 'python3';
-      else if (langText.includes('c++') || langText.includes('cpp')) language = 'cpp';
-      else if (langText.includes('java') && !langText.includes('script')) language = 'java';
-      else if (langText.includes('typescript')) language = 'typescript';
-      else if (langText.includes('javascript')) language = 'javascript';
-      else if (langText.includes('go')) language = 'golang';
-      else if (langText.includes('rust')) language = 'rust';
-      else if (langText.includes('c#')) language = 'csharp';
-      else if (langText.includes('sql')) language = 'sql';
-      else if (langText === 'c') language = 'c';
+    let language = 'cpp';
+    const langButtons = document.querySelectorAll('button[id*="headlessui-listbox-button"], button[class*="rounded"]');
+    for (const btn of langButtons) {
+      const langText = (btn.textContent || '').trim().toLowerCase();
+      if (langText.includes('c++') || langText === 'cpp') { language = 'cpp'; break; }
+      if (langText.includes('python')) { language = 'python3'; break; }
+      if (langText.includes('java') && !langText.includes('script')) { language = 'java'; break; }
+      if (langText.includes('typescript')) { language = 'typescript'; break; }
+      if (langText.includes('javascript')) { language = 'javascript'; break; }
+      if (langText.includes('sql')) { language = 'sql'; break; }
+      if (langText === 'c') { language = 'c'; break; }
+    }
+
+    // Performance metrics from submission result card (if visible)
+    let runtime = null;
+    let memory = null;
+    let runtimePercentile = null;
+    let memoryPercentile = null;
+
+    const runtimeEl = document.querySelector('[class*="runtime"], div:has(> [class*="runtime"])');
+    const fullBody = document.body ? document.body.innerText : '';
+    const rtMatch = fullBody.match(/Runtime\s*([0-9]+\s*ms)(?:\s*Beats\s*([0-9.]+)%)?/i);
+    if (rtMatch) {
+      runtime = rtMatch[1];
+      runtimePercentile = rtMatch[2] || null;
+    }
+
+    const memMatch = fullBody.match(/Memory\s*([0-9.]+\s*MB)(?:\s*Beats\s*([0-9.]+)%)?/i);
+    if (memMatch) {
+      memory = memMatch[1];
+      memoryPercentile = memMatch[2] || null;
     }
 
     return {
@@ -124,26 +143,44 @@
       titleSlug: slug,
       difficulty,
       language,
-      url: window.location.href
+      runtime,
+      memory,
+      runtimePercentile,
+      memoryPercentile,
+      url: `https://leetcode.com/problems/${slug}/`
     };
   }
 
   /**
-   * Fallback code extraction directly from Monaco DOM if needed
+   * Code extraction from Monaco Editor DOM
    */
   function extractCodeFromDOM() {
+    // 1. Check if window.__CODE_RAGINII_GET_CODE__ exists (if main world accessible)
+    if (typeof window.__CODE_RAGINII_GET_CODE__ === 'function') {
+      const c = window.__CODE_RAGINII_GET_CODE__();
+      if (c && c.trim()) return c;
+    }
+
+    // 2. Extract from Monaco view-lines container
     const viewLines = document.querySelector('.monaco-editor .view-lines');
     if (viewLines) {
-      const lines = Array.from(viewLines.querySelectorAll('.view-line')).map((line) => line.textContent);
-      if (lines.length > 0) {
-        return lines.join('\n');
+      const lineElements = Array.from(viewLines.querySelectorAll('.view-line'));
+      if (lineElements.length > 0) {
+        return lineElements.map((el) => el.textContent.replace(/\u00A0/g, ' ')).join('\n');
       }
     }
+
+    // 3. Extract from textarea.inputarea
+    const textarea = document.querySelector('.monaco-editor textarea');
+    if (textarea && textarea.value && textarea.value.trim().length > 10) {
+      return textarea.value;
+    }
+
     return null;
   }
 
   // =========================================================================
-  // 3. Floating In-Page Toast Widget
+  // 2. Floating In-Page Toast Widget
   // =========================================================================
   function getOrCreateToast() {
     let toast = document.getElementById('code-raginii-toast');
@@ -194,12 +231,8 @@
     const commitBtn = document.getElementById('code-raginii-commit-btn');
 
     if (options.message && msg) msg.textContent = options.message;
-    if (options.difficulty && diff) {
-      diff.textContent = options.difficulty;
-    }
-    if (options.perf && perf) {
-      perf.textContent = options.perf;
-    }
+    if (options.difficulty && diff) diff.textContent = options.difficulty;
+    if (options.perf && perf) perf.textContent = options.perf;
 
     if (dot) {
       dot.className = 'code-raginii-pulse-dot';
@@ -227,13 +260,13 @@
   }
 
   // =========================================================================
-  // 4. Ingestion Handler
+  // 3. Ingestion Handler
   // =========================================================================
-  async function handleAcceptedSubmission(submissionData) {
+  async function handleAcceptedSubmission(submissionData = {}) {
     if (isSyncing) return;
 
     const submissionId = submissionData.submissionId || Date.now();
-    if (lastProcessedSubmissionId === submissionId) {
+    if (lastProcessedSubmissionId && lastProcessedSubmissionId === submissionId) {
       console.log('[Code_Raginii] Duplicate submission event ignored:', submissionId);
       return;
     }
@@ -244,7 +277,7 @@
     const code = submissionData.code || extractCodeFromDOM();
 
     if (!code) {
-      console.warn('[Code_Raginii] Could not extract solution code.');
+      console.warn('[Code_Raginii] Could not extract solution code from editor.');
       isSyncing = false;
       return;
     }
@@ -256,21 +289,21 @@
       difficulty: meta.difficulty,
       language: submissionData.language || meta.language,
       code: code,
-      runtime: submissionData.runtime || null,
-      runtimePercentile: submissionData.runtimePercentile || null,
-      memory: submissionData.memory || null,
-      memoryPercentile: submissionData.memoryPercentile || null,
+      runtime: submissionData.runtime || meta.runtime || null,
+      runtimePercentile: submissionData.runtimePercentile || meta.runtimePercentile || null,
+      memory: submissionData.memory || meta.memory || null,
+      memoryPercentile: submissionData.memoryPercentile || meta.memoryPercentile || null,
       url: meta.url,
       submissionId: submissionId
     };
 
-    console.log('[Code_Raginii] Submitting accepted solution for:', problemPayload.title);
+    console.log('[Code_Raginii] Ingesting accepted solution for:', problemPayload.title);
 
     showToastNotification({
       status: 'pending',
       message: `Accepted! Syncing ${meta.title} to GitHub...`,
       difficulty: meta.difficulty,
-      perf: `${submissionData.runtime || 'Accepted'} | GitHub`,
+      perf: `${problemPayload.runtime || 'Accepted'} | GitHub`,
       persist: true
     });
 
@@ -282,7 +315,7 @@
 
       if (response && response.success) {
         if (response.duplicate) {
-          console.log(`[Code_Raginii] Duplicate solution detected for ${meta.title}. Skipped re-upload.`);
+          console.log(`[Code_Raginii] "${meta.title}" is already up to date on GitHub.`);
           showToastNotification({
             status: 'info',
             message: `"${meta.title}" is already up to date on GitHub!`,
@@ -292,13 +325,13 @@
           });
         } else {
           const shortSha = response.commitSha ? response.commitSha.slice(0, 7) : 'done';
-          console.log(`[Code_Raginii] Solution synced! Commit: ${shortSha}`);
+          console.log(`[Code_Raginii] Synced successfully! Commit: ${shortSha}`);
 
           showToastNotification({
             status: 'success',
-            message: `Uploaded to GitHub (${shortSha})!`,
+            message: `Uploaded ${meta.title} (${shortSha})!`,
             difficulty: meta.difficulty,
-            perf: submissionData.runtime ? `Runtime: ${submissionData.runtime}` : 'Accepted',
+            perf: problemPayload.runtime ? `Runtime: ${problemPayload.runtime}` : 'Accepted',
             commitUrl: response.commitUrl,
             duration: 7000
           });
@@ -311,16 +344,15 @@
           duration: 5000
         });
       } else {
-        const errorMsg = response?.error || 'Sync failed.';
         showToastNotification({
           status: 'error',
-          message: `Sync failed: ${errorMsg}`,
+          message: `Sync failed: ${response?.error || 'Unknown error'}`,
           difficulty: meta.difficulty,
           duration: 6000
         });
       }
     } catch (err) {
-      console.error('[Code_Raginii] Content script sync error:', err);
+      console.error('[Code_Raginii] Sync error:', err);
       showToastNotification({
         status: 'error',
         message: `Sync error: ${err.message}`,
@@ -332,47 +364,65 @@
   }
 
   // =========================================================================
-  // 5. Event Listeners
+  // 4. Event Listeners (Network & DOM)
   // =========================================================================
   window.addEventListener('CODE_RAGINII_SUBMISSION_EVENT', (event) => {
     const detail = event.detail;
     if (detail && detail.statusDisplay === 'Accepted') {
-      console.log('[Code_Raginii] Accepted event received from network interceptor:', detail);
+      console.log('[Code_Raginii] Accepted event from interceptor:', detail);
       handleAcceptedSubmission(detail);
     }
   });
 
-  // DOM MutationObserver fallback for visual result panel
-  let observerDebounce = null;
-  const domObserver = new MutationObserver((mutations) => {
-    if (isSyncing) return;
-
-    for (const mutation of mutations) {
-      if (mutation.addedNodes.length > 0) {
-        if (observerDebounce) clearTimeout(observerDebounce);
-        observerDebounce = setTimeout(() => {
-          const resultElements = document.querySelectorAll(
-            '[data-e2e-locator="submission-result"], div[class*="text-green"], span[class*="text-green"]'
-          );
-
-          for (const el of resultElements) {
-            const text = el.textContent.trim();
-            if (text.includes('Accepted') && !text.includes('Accepted Solutions')) {
-              console.log('[Code_Raginii] Detected Accepted state in DOM.');
-              handleAcceptedSubmission({
-                statusDisplay: 'Accepted',
-                source: 'DOM_OBSERVER'
-              });
-              break;
-            }
-          }
-        }, 800);
+  // Check on load if an Accepted result is already on screen
+  function checkExistingAcceptedInDOM() {
+    const bodyText = document.body ? document.body.innerText : '';
+    if (bodyText.includes('Accepted') && bodyText.includes('testcases passed')) {
+      const meta = extractProblemMetadata();
+      const code = extractCodeFromDOM();
+      if (code) {
+        console.log('[Code_Raginii] Detected existing Accepted submission on page load.');
+        handleAcceptedSubmission({
+          statusDisplay: 'Accepted',
+          source: 'PAGE_LOAD_DOM'
+        });
       }
     }
+  }
+
+  setTimeout(checkExistingAcceptedInDOM, 1500);
+
+  // MutationObserver for visual "Accepted" changes
+  let observerDebounce = null;
+  const domObserver = new MutationObserver(() => {
+    if (isSyncing) return;
+    if (observerDebounce) clearTimeout(observerDebounce);
+    observerDebounce = setTimeout(() => {
+      const bodyText = document.body ? document.body.innerText : '';
+      if (bodyText.includes('Accepted') && bodyText.includes('testcases passed')) {
+        handleAcceptedSubmission({
+          statusDisplay: 'Accepted',
+          source: 'DOM_OBSERVER'
+        });
+      }
+    }, 600);
   });
 
-  domObserver.observe(document.body, {
-    childList: true,
-    subtree: true
+  domObserver.observe(document.body, { childList: true, subtree: true });
+
+  // Listen for popup manual sync request
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'GET_CURRENT_PROBLEM_DATA') {
+      const meta = extractProblemMetadata();
+      const code = extractCodeFromDOM();
+      sendResponse({
+        success: Boolean(code),
+        problem: {
+          ...meta,
+          code
+        }
+      });
+      return true;
+    }
   });
 })();

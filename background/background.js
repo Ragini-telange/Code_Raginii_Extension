@@ -64,12 +64,10 @@ chrome.runtime.onInstalled.addListener(async (details) => {
       if (existing[key] === undefined) {
         updates[key] = value;
       } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-        // Deep merge top-level object fields to preserve user credentials while adding new keys
         updates[key] = { ...value, ...existing[key] };
       }
     }
 
-    // Default repo name update if it was pointing to old rag_leetsync
     if (updates.auth?.repo === 'rag_leetsync' || existing.auth?.repo === 'rag_leetsync') {
       updates.auth = { ...(updates.auth || existing.auth), repo: 'Code_Raginii_Extension' };
     }
@@ -117,7 +115,6 @@ async function processProblemSync(problem, options = {}) {
   const existingSync = registry[slug];
 
   if (settings?.preventDuplicates !== false && !options.forceSync && existingSync) {
-    // Check if submission ID is identical or code hash is unchanged
     const sameSubmission = submissionId && existingSync.submissionId === submissionId;
     const sameCode = existingSync.codeHash === codeHash;
 
@@ -291,7 +288,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (safeAuth.token) {
           const t = safeAuth.token;
           safeAuth.maskedToken = t.length > 8 ? `${t.slice(0, 4)}••••••••${t.slice(-4)}` : '••••••••';
-          safeAuth.token = undefined; // Never leak raw token to UI status
+          safeAuth.token = undefined;
         }
         return {
           success: true,
@@ -379,7 +376,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         const targetBranch = branch ? branch.trim() : (auth.branch || 'main');
 
-        // Verify repository accessibility
         const verification = await verifyRepository(auth.token, owner, cleanRepoName);
         if (!verification.exists) {
           return {
@@ -499,6 +495,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
 
         return await processProblemSync(problem);
+      }
+
+      case 'SYNC_CURRENT_TAB_PROBLEM': {
+        try {
+          const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+          if (!activeTab || !activeTab.id) {
+            return { success: false, error: 'No active tab found. Please make sure LeetCode is open.' };
+          }
+
+          if (!activeTab.url || !activeTab.url.includes('leetcode.com/problems/')) {
+            return { success: false, error: 'Active tab is not a LeetCode problem. Please switch to your LeetCode problem tab.' };
+          }
+
+          let response;
+          try {
+            response = await chrome.tabs.sendMessage(activeTab.id, { type: 'GET_CURRENT_PROBLEM_DATA' });
+          } catch (e) {
+            return {
+              success: false,
+              error: 'Please refresh the LeetCode tab (press F5) so Code_Raginii can connect to it, then click Sync again!'
+            };
+          }
+
+          if (!response || !response.problem || !response.problem.code) {
+            return {
+              success: false,
+              error: 'Could not extract code from editor. Please reload the problem tab and try again.'
+            };
+          }
+
+          return await processProblemSync(response.problem, { forceSync: true });
+        } catch (err) {
+          return { success: false, error: err.message };
+        }
       }
 
       case 'UPDATE_SETTINGS': {
